@@ -1,0 +1,26 @@
+{
+    "manifest_version": 3,
+    "name": "YouBuddies",
+    "version": "1.0",
+    "permissions": ["webNavigation", "scripting", "tabs", "activeTab", "storage"],
+    "host_permissions": ["https://www.youtube.com/*"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "web_accessible_resources": [{ "resources": ["bridge.html"], "matches": ["<all_urls>"] }],
+    "sandbox": {
+		"pages": ["popup.html"]
+	},
+	"content_security_policy": {
+		"sandbox": "sandbox allow-scripts; script-src 'self' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com"
+	},
+    "icons": {
+        "16": "icon16.png",
+        "32": "icon32.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    }
+}
