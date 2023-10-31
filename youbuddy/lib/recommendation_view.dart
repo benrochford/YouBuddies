@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:math';
 
 class RecommendationView extends StatefulWidget {
   final String clientId;
@@ -72,6 +73,153 @@ class _RecommendationViewState extends State<RecommendationView>
     }
 
     return friendRecommendationsMap;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchFriendRecommendations(
+      String friendId) async {
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(friendId)
+        .collection('youtubeRecommendations')
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .get();
+
+    if (querySnapshot.docs.isNotEmpty) {
+      final recentRecommendationsDoc = querySnapshot.docs.first.data();
+      if (recentRecommendationsDoc.containsKey('recommendations')) {
+        return (recentRecommendationsDoc['recommendations'] as List)
+            .map((r) => r as Map<String, dynamic>)
+            .toList();
+      }
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCurrentUserRecommendations() async {
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.clientId)
+        .collection('youtubeRecommendations')
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .get();
+
+    if (querySnapshot.docs.isNotEmpty) {
+      final recentRecommendationsDoc = querySnapshot.docs.first.data();
+      if (recentRecommendationsDoc.containsKey('recommendations')) {
+        return (recentRecommendationsDoc['recommendations'] as List)
+            .map((r) => r as Map<String, dynamic>)
+            .toList();
+      }
+    }
+    return [];
+  }
+
+  Future<Map<String, Map<String, dynamic>>> findCommonRecommendations(
+      List<String> friends) async {
+    Map<String, Map<String, dynamic>> commonRecsMap = {};
+
+    for (String friend in friends) {
+      final friendRecs = await fetchFriendRecommendations(
+          friend); // Assumes this function is defined elsewhere
+
+      for (var rec in friendRecs) {
+        String friendRecUrl = rec['link'];
+        String friendRecTitle = rec['title'];
+
+        if (commonRecsMap.containsKey(friendRecUrl)) {
+          // If the URL already exists, just update 'count' and 'friendUsernames'
+          if (commonRecsMap[friendRecUrl]?['count'] != null) {
+            commonRecsMap[friendRecUrl]!['count'] += 1;
+            commonRecsMap[friendRecUrl]!['friendUsernames'].add(friend);
+          }
+        } else {
+          // If the URL does not yet exist in the map, add it
+          commonRecsMap[friendRecUrl] = {
+            'count': 1,
+            'title': friendRecTitle,
+            'friendUsernames': [friend],
+          };
+        }
+      }
+    }
+
+    return commonRecsMap;
+  }
+
+  Widget buildCommonRecommendationsWidget(
+      Map<String, Map<String, dynamic>> commonRecsMap) {
+    List<Widget> commonRecsList = [];
+
+    // Null check and sorting
+    if (commonRecsMap.isNotEmpty) {
+      var sortedKeys = commonRecsMap.keys.toList(growable: false);
+      sortedKeys.sort((k1, k2) {
+        return (commonRecsMap[k2]?['count'] ?? 0)
+            .compareTo(commonRecsMap[k1]?['count'] ?? 0);
+      });
+
+      // Take top 10 or fewer if not available
+      for (var i = 0; i < min(30, sortedKeys.length); i++) {
+        String url = sortedKeys[i];
+        Map<String, dynamic>? details = commonRecsMap[url];
+        if (details != null) {
+          String title = details['title'] ?? 'Unknown title';
+
+          commonRecsList.add(
+            ListTile(
+              title: Text(title),
+              trailing: GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        content: SingleChildScrollView(
+                          child: Column(
+                            children: List<Widget>.generate(
+                                details['friendUsernames'].length,
+                                (int index) =>
+                                    Text(details['friendUsernames'][index])),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                child: Text(details['count'].toString()),
+              ),
+              subtitle: InkWell(
+                onTap: () async {
+                  final urlObj = Uri.parse(url);
+                  if (await canLaunchUrl(urlObj)) {
+                    await launchUrl(urlObj);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Unable to open link')),
+                    );
+                  }
+                },
+                child: Text(
+                  url,
+                  style: TextStyle(
+                      color: Colors.blue, decoration: TextDecoration.underline),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    return ExpansionTile(
+      title: Text(
+        'Common Recommendations',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      children: commonRecsList,
+    );
   }
 
   List<Widget> buildRecommendationList(
@@ -151,32 +299,52 @@ class _RecommendationViewState extends State<RecommendationView>
 
             final recommendationsMap = recommendationsSnapshot.data!;
 
-            return Scaffold(
-              appBar: AppBar(
-                title: Text('YouTube Recommendations from Friends'),
-              ),
-              body: ListView.builder(
-                  itemCount: friendsList.length,
-                  itemBuilder: (context, index) {
-                    final friendName = friendsList[index];
-                    final recommendations = recommendationsMap[friendName];
+            return FutureBuilder<Map<String, Map<String, dynamic>>>(
+                future: findCommonRecommendations(friendsList),
+                builder: (context, commonRecsSnapshot) {
+                  if (!commonRecsSnapshot.hasData) {
+                    return CircularProgressIndicator();
+                  }
 
-                    return ExpansionTile(
-                      title: Text(
-                        friendName,
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      initiallyExpanded: expansionStateMap[friendName] ?? false,
-                      onExpansionChanged: (bool isExpanded) {
-                        setState(() {
-                          expansionStateMap[friendName] = isExpanded;
-                        });
-                      },
-                      children: buildRecommendationList(recommendations ?? []),
-                    );
-                  }),
-            );
+                  final commonRecsMap = commonRecsSnapshot.data!;
+
+                  return Scaffold(
+                    appBar: AppBar(
+                      title: Text('Recommendations from friends'),
+                    ),
+                    body: ListView(
+                      children: [
+                        buildCommonRecommendationsWidget(commonRecsMap),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: friendsList.length,
+                          itemBuilder: (context, index) {
+                            final friendName = friendsList[index];
+                            final recommendations =
+                                recommendationsMap[friendName];
+                            return ExpansionTile(
+                              title: Text(
+                                friendName,
+                                style: TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              initiallyExpanded:
+                                  expansionStateMap[friendName] ?? false,
+                              onExpansionChanged: (bool isExpanded) {
+                                setState(() {
+                                  expansionStateMap[friendName] = isExpanded;
+                                });
+                              },
+                              children: buildRecommendationList(
+                                  recommendations ?? []),
+                            );
+                          },
+                        )
+                      ],
+                    ),
+                  );
+                });
           },
         );
       },
