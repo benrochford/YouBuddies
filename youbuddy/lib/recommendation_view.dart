@@ -12,10 +12,11 @@ class RecommendationView extends StatefulWidget {
 }
 
 class _RecommendationViewState extends State<RecommendationView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // mixin gives tick for animation
   Map<String, bool> expansionStateMap = {};
   late Animation<Offset> _slideAnimation;
+  late AnimationController _textGradientController;
 
   // animation stuff for funny empty list icon
   late AnimationController _controller;
@@ -26,15 +27,22 @@ class _RecommendationViewState extends State<RecommendationView>
       duration: const Duration(seconds: 1),
       vsync: this,
     )..repeat(reverse: true);
+
     _slideAnimation = Tween<Offset>(
       begin: Offset(-0.1, 0.0),
       end: Offset(0.1, 0.0),
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    _textGradientController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _textGradientController.dispose();
     super.dispose();
   }
 
@@ -169,7 +177,7 @@ class _RecommendationViewState extends State<RecommendationView>
             .compareTo(commonRecsMap[k1]?['count'] ?? 0);
       });
 
-      // Take top 10 or fewer if not available
+      // Take top 30 or fewer if not available
       for (var i = 0; i < min(30, sortedKeys.length); i++) {
         String url = sortedKeys[i];
         Map<String, dynamic>? details = commonRecsMap[url];
@@ -221,11 +229,37 @@ class _RecommendationViewState extends State<RecommendationView>
         }
       }
     }
-
+    // Animated cool text for shared recs
     return ExpansionTile(
-      title: Text(
-        'Shared Recommendations',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      title: AnimatedBuilder(
+        animation: _textGradientController,
+        builder: (context, _) {
+          return ShaderMask(
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                colors: [
+                  const Color.fromARGB(255, 72, 168, 246),
+                  Color.fromARGB(255, 243, 98, 166),
+                  const Color.fromARGB(255, 72, 168, 246),
+                ],
+                stops: [
+                  _textGradientController.value - 1,
+                  _textGradientController.value,
+                  _textGradientController.value + 1,
+                ],
+                tileMode: TileMode.repeated,
+              ).createShader(bounds);
+            },
+            child: Text(
+              'Shared Recommendations',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          );
+        },
       ),
       children: commonRecsList,
     );
