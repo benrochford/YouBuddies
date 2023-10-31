@@ -120,22 +120,29 @@ class _RecommendationViewState extends State<RecommendationView>
       List<String> friends) async {
     Map<String, Map<String, dynamic>> commonRecsMap = {};
 
-    for (String friend in friends) {
-      final friendRecs = await fetchFriendRecommendations(
-          friend); // Assumes this function is defined elsewhere
+    // Initialize commonRecsMap with current user's recommendations
+    final currentUserRecs = await fetchCurrentUserRecommendations();
+    for (var rec in currentUserRecs) {
+      String userRecUrl = rec['link'];
+      String userRecTitle = rec['title'];
+      commonRecsMap[userRecUrl] = {
+        'count': 1,
+        'title': userRecTitle,
+        'friendUsernames': ['You!'],
+      };
+    }
 
+    for (String friend in friends) {
+      final friendRecs = await fetchFriendRecommendations(friend);
       for (var rec in friendRecs) {
         String friendRecUrl = rec['link'];
         String friendRecTitle = rec['title'];
-
         if (commonRecsMap.containsKey(friendRecUrl)) {
-          // If the URL already exists, just update 'count' and 'friendUsernames'
           if (commonRecsMap[friendRecUrl]?['count'] != null) {
             commonRecsMap[friendRecUrl]!['count'] += 1;
             commonRecsMap[friendRecUrl]!['friendUsernames'].add(friend);
           }
         } else {
-          // If the URL does not yet exist in the map, add it
           commonRecsMap[friendRecUrl] = {
             'count': 1,
             'title': friendRecTitle,
@@ -145,7 +152,9 @@ class _RecommendationViewState extends State<RecommendationView>
       }
     }
 
-    return commonRecsMap;
+    // return commonRecsMap;  // uncomment to include recs got by only 1 person
+    return Map.fromEntries(
+        commonRecsMap.entries.where((e) => e.value['count'] >= 2));
   }
 
   Widget buildCommonRecommendationsWidget(
@@ -215,7 +224,7 @@ class _RecommendationViewState extends State<RecommendationView>
 
     return ExpansionTile(
       title: Text(
-        'Common Recommendations',
+        'Shared Recommendations',
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ),
       children: commonRecsList,

@@ -55,7 +55,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
     final clientId = widget.clientId;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Manage Friends'),
+        title: Text('Follow Friends'),
       ),
       body: Column(
         children: [
@@ -64,7 +64,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
             child: TextField(
               controller: _friendIdController,
               decoration: InputDecoration(
-                labelText: 'Enter Friend ID to add',
+                labelText: 'Enter Friend ID to follow',
               ),
               onSubmitted: (_) => _addFriend(),
             ),
