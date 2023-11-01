@@ -240,7 +240,7 @@ class _RecommendationViewState extends State<RecommendationView>
                 colors: [
                   const Color.fromARGB(255, 72, 168, 246),
                   Color.fromARGB(255, 243, 98, 166),
-                  const Color.fromARGB(255, 72, 168, 246),
+                  Color.fromARGB(255, 81, 72, 246),
                 ],
                 stops: [
                   _textGradientController.value - 1,
