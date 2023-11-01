@@ -187,25 +187,31 @@ class _RecommendationViewState extends State<RecommendationView>
           commonRecsList.add(
             ListTile(
               title: Text(title),
-              trailing: GestureDetector(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        content: SingleChildScrollView(
-                          child: Column(
-                            children: List<Widget>.generate(
-                                details['friendUsernames'].length,
-                                (int index) =>
-                                    Text(details['friendUsernames'][index])),
-                          ),
-                        ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(details['count'].toString()),
+                  IconButton(
+                    icon: Icon(Icons.people),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            content: SingleChildScrollView(
+                              child: Column(
+                                children: List<Widget>.generate(
+                                    details['friendUsernames'].length,
+                                    (int index) => Text(
+                                        details['friendUsernames'][index])),
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-                child: Text(details['count'].toString()),
+                  ),
+                ],
               ),
               subtitle: InkWell(
                 onTap: () async {
