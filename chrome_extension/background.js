@@ -6,10 +6,13 @@ function collectRecommendations() {
   if (recommendationElements.length > 0) {
     recommendationElements.forEach((element) => {
       const titleElement = element.querySelector('.style-scope ytd-rich-grid-media a#video-title-link');
+      const channelElement = element.querySelector('.style-scope ytd-rich-grid-media ytd-channel-name #text');
+      const thumbnailElement = element.querySelector('.style-scope ytd-rich-grid-media ytd-thumbnail img');
+      
       const title = titleElement ? titleElement.innerText : 'N/A';
       const link = titleElement ? titleElement.href : 'N/A';
-      const channel = element.querySelector('.style-scope ytd-rich-grid-media ytd-channel-name #text').innerText;
-      const thumbnail = element.querySelector('.style-scope ytd-rich-grid-media ytd-thumbnail img').src;
+      const channel = channelElement ? channelElement.innerText : 'N/A';
+      const thumbnail = thumbnailElement ? thumbnailElement.src : 'N/A';
 
       if (title !== 'N/A' && !addedTitles.has(title)) {
         addedTitles.add(title);
