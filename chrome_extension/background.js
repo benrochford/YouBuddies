@@ -8,12 +8,16 @@ function collectRecommendations() {
       const titleElement = element.querySelector('.style-scope ytd-rich-grid-media a#video-title-link');
       const title = titleElement ? titleElement.innerText : 'N/A';
       const link = titleElement ? titleElement.href : 'N/A';
+      const channel = element.querySelector('.style-scope ytd-rich-grid-media ytd-channel-name #text').innerText;
+      const thumbnail = element.querySelector('.style-scope ytd-rich-grid-media ytd-thumbnail img').src;
 
       if (title !== 'N/A' && !addedTitles.has(title)) {
         addedTitles.add(title);
         recommendations.push({
           title,
-          link
+          link,
+          channel,
+          thumbnail
         });
       }
     });
