@@ -134,6 +134,7 @@ class _RecommendationViewState extends State<RecommendationView>
       commonRecsMap[rec['link']] = {
         'count': 1,
         'title': rec['title'],
+        'link': rec['link'],
         'thumbnail': rec['thumbnail'],
         'channel': rec['channel'],
         'friendUsernames': ['You!'],
@@ -152,6 +153,7 @@ class _RecommendationViewState extends State<RecommendationView>
           commonRecsMap[rec['link']] = {
             'count': 1,
             'title': rec['title'],
+            'link': rec['link'],
             'thumbnail': rec['thumbnail'],
             'channel': rec['channel'],
             'friendUsernames': [friend],
@@ -183,7 +185,9 @@ class _RecommendationViewState extends State<RecommendationView>
         Map<String, dynamic>? details = commonRecsMap[url];
         if (details != null) {
           String title = details['title'] ?? 'Unknown title';
-          String thumbnailUrl = details['thumbnail'] ?? '';
+          String thumbnailUrl = "https://img.youtube.com/vi/" +
+              details['link'].toString().split('?v=')[1] +
+              "/0.jpg";
 
           commonRecsList.add(
             ListTile(
@@ -317,7 +321,9 @@ class _RecommendationViewState extends State<RecommendationView>
     }
 
     return recommendations.map((recommendation) {
-      String thumbnailUrl = recommendation['thumbnail'] ?? '';
+      String thumbnailUrl = "https://img.youtube.com/vi/" +
+          recommendation['link'].toString().split('?v=')[1] +
+          "/0.jpg";
 
       return ListTile(
         leading: Container(
