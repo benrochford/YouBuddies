@@ -10,7 +10,7 @@ function collectRecommendations() {
       const thumbnailElement = element.querySelector('.style-scope ytd-rich-grid-media ytd-thumbnail img');
       
       const title = titleElement ? titleElement.innerText : 'N/A';
-      const link = titleElement ? titleElement.href : 'N/A';
+      const link = titleElement ? titleElement.href.split('&')[0] : 'N/A';
       const channel = channelElement ? channelElement.innerText : 'N/A';
       const thumbnail = thumbnailElement ? thumbnailElement.src : 'N/A';
 
