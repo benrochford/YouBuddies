@@ -135,7 +135,6 @@ class _RecommendationViewState extends State<RecommendationView>
         'count': 1,
         'title': rec['title'],
         'link': rec['link'],
-        'thumbnail': rec['thumbnail'],
         'channel': rec['channel'],
         'friendUsernames': ['You!'],
       };
@@ -154,7 +153,6 @@ class _RecommendationViewState extends State<RecommendationView>
             'count': 1,
             'title': rec['title'],
             'link': rec['link'],
-            'thumbnail': rec['thumbnail'],
             'channel': rec['channel'],
             'friendUsernames': [friend],
           };
