@@ -131,11 +131,11 @@ class _RecommendationViewState extends State<RecommendationView>
     // Initialize commonRecsMap with current user's recommendations
     final currentUserRecs = await fetchCurrentUserRecommendations();
     for (var rec in currentUserRecs) {
-      String userRecUrl = rec['link'];
-      String userRecTitle = rec['title'];
-      commonRecsMap[userRecUrl] = {
+      commonRecsMap[rec['link']] = {
         'count': 1,
-        'title': userRecTitle,
+        'title': rec['title'],
+        'thumbnail': rec['thumbnail'],
+        'channel': rec['channel'],
         'friendUsernames': ['You!'],
       };
     }
@@ -143,17 +143,17 @@ class _RecommendationViewState extends State<RecommendationView>
     for (String friend in friends) {
       final friendRecs = await fetchFriendRecommendations(friend);
       for (var rec in friendRecs) {
-        String friendRecUrl = rec['link'];
-        String friendRecTitle = rec['title'];
-        if (commonRecsMap.containsKey(friendRecUrl)) {
-          if (commonRecsMap[friendRecUrl]?['count'] != null) {
-            commonRecsMap[friendRecUrl]!['count'] += 1;
-            commonRecsMap[friendRecUrl]!['friendUsernames'].add(friend);
+        if (commonRecsMap.containsKey(rec['link'])) {
+          if (commonRecsMap[rec['link']]?['count'] != null) {
+            commonRecsMap[rec['link']]!['count'] += 1;
+            commonRecsMap[rec['link']]!['friendUsernames'].add(friend);
           }
         } else {
-          commonRecsMap[friendRecUrl] = {
+          commonRecsMap[rec['link']] = {
             'count': 1,
-            'title': friendRecTitle,
+            'title': rec['title'],
+            'thumbnail': rec['thumbnail'],
+            'channel': rec['channel'],
             'friendUsernames': [friend],
           };
         }
@@ -183,9 +183,20 @@ class _RecommendationViewState extends State<RecommendationView>
         Map<String, dynamic>? details = commonRecsMap[url];
         if (details != null) {
           String title = details['title'] ?? 'Unknown title';
+          String thumbnailUrl = details['thumbnail'] ?? '';
 
           commonRecsList.add(
             ListTile(
+              leading: Container(
+                width: 56.0,
+                height: 32.0,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    fit: BoxFit.cover,
+                    image: NetworkImage(thumbnailUrl),
+                  ),
+                ),
+              ),
               title: Text(title),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -306,7 +317,19 @@ class _RecommendationViewState extends State<RecommendationView>
     }
 
     return recommendations.map((recommendation) {
+      String thumbnailUrl = recommendation['thumbnail'] ?? '';
+
       return ListTile(
+        leading: Container(
+          width: 56.0,
+          height: 32.0,
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              fit: BoxFit.cover,
+              image: NetworkImage(thumbnailUrl),
+            ),
+          ),
+        ),
         title: Text(recommendation['title']),
         subtitle: InkWell(
           onTap: () async {
