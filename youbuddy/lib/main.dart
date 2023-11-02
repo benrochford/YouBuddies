@@ -16,6 +16,41 @@ void main() async {
   runApp(MyApp());
 }
 
+// defines app bar gradient based on time of day
+LinearGradient getAppBarGradient() {
+  final now = DateTime.now();
+  final hour = now.hour;
+
+  if (hour < 11) {
+    return LinearGradient(
+      colors: [
+        Color.fromARGB(255, 232, 162, 198),
+        const Color.fromARGB(255, 95, 147, 190)
+      ],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  } else if (hour < 17) {
+    return LinearGradient(
+      colors: [Colors.blue.shade200, Color.fromARGB(255, 91, 173, 255)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  } else if (hour < 20) {
+    return LinearGradient(
+      colors: [Colors.red.shade200, Colors.purple.shade200],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  } else {
+    return LinearGradient(
+      colors: [Colors.purple.shade800, Colors.blue.shade800],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+}
+
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -109,6 +144,11 @@ class _InitializationWidgetState extends State<InitializationWidget> {
             length: 2,
             child: Scaffold(
               appBar: AppBar(
+                flexibleSpace: Container(
+                  decoration: BoxDecoration(
+                    gradient: getAppBarGradient(), // updated call here
+                  ),
+                ),
                 bottom: TabBar(
                   tabs: [
                     Tab(text: 'Recommendations'),
