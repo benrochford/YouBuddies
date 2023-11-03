@@ -187,8 +187,18 @@ class _RecommendationViewState extends State<RecommendationView>
               details['link'].toString().split('?v=')[1] +
               "/0.jpg";
 
-          commonRecsList.add(
-            ListTile(
+          commonRecsList.add(InkWell(
+            onTap: () async {
+              final urlObj = Uri.parse(url);
+              if (await canLaunchUrl(urlObj)) {
+                await launchUrl(urlObj);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Unable to open link')),
+                );
+              }
+            },
+            child: ListTile(
               leading: Container(
                 width: 56.0,
                 height: 32.0,
@@ -200,6 +210,7 @@ class _RecommendationViewState extends State<RecommendationView>
                 ),
               ),
               title: Text(title),
+              subtitle: Text(details['channel'] ?? 'Unknown channel'),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -226,25 +237,8 @@ class _RecommendationViewState extends State<RecommendationView>
                   ),
                 ],
               ),
-              subtitle: InkWell(
-                onTap: () async {
-                  final urlObj = Uri.parse(url);
-                  if (await canLaunchUrl(urlObj)) {
-                    await launchUrl(urlObj);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Unable to open link')),
-                    );
-                  }
-                },
-                child: Text(
-                  url,
-                  style: TextStyle(
-                      color: Colors.blue, decoration: TextDecoration.underline),
-                ),
-              ),
             ),
-          );
+          ));
         }
       }
     }
@@ -323,34 +317,30 @@ class _RecommendationViewState extends State<RecommendationView>
           recommendation['link'].toString().split('?v=')[1] +
           "/0.jpg";
 
-      return ListTile(
-        leading: Container(
-          width: 56.0,
-          height: 32.0,
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              fit: BoxFit.cover,
-              image: NetworkImage(thumbnailUrl),
+      final url = Uri.parse(recommendation['link']);
+      return InkWell(
+        onTap: () async {
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Unable to open link')),
+            );
+          }
+        },
+        child: ListTile(
+          leading: Container(
+            width: 56.0,
+            height: 32.0,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                fit: BoxFit.cover,
+                image: NetworkImage(thumbnailUrl),
+              ),
             ),
           ),
-        ),
-        title: Text(recommendation['title']),
-        subtitle: InkWell(
-          onTap: () async {
-            final url = Uri.parse(recommendation['link']);
-            if (await canLaunchUrl(url)) {
-              await launchUrl(url);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Unable to open link')),
-              );
-            }
-          },
-          child: Text(
-            recommendation['link'],
-            style: TextStyle(
-                color: Colors.blue, decoration: TextDecoration.underline),
-          ),
+          title: Text(recommendation['title']),
+          subtitle: Text(recommendation['channel'] ?? 'Unknown channel'),
         ),
       );
     }).toList();
