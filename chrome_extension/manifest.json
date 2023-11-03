@@ -15,7 +15,7 @@
 		"pages": ["popup.html"]
 	},
 	"content_security_policy": {
-		"sandbox": "sandbox allow-scripts; script-src 'self' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com"
+		"sandbox": "sandbox allow-scripts allow-popups; script-src 'self' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com"
 	},
     "icons": {
         "16": "icon16.png",
