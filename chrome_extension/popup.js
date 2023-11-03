@@ -15,7 +15,7 @@ const db = firebase.firestore();
 // Listen for a message from bridge.html
 window.addEventListener("message", function(event) {
   console.log("Message received in popup", event.data);
-  if (event.data.action === "collectedRecommendations") {
+  if (event.data.action === "collectData") {
     const data = event.data.data;
     // yyyy_MM_dd_HH_mm_ss for document name
     const date = new Date();
@@ -25,7 +25,8 @@ window.addEventListener("message", function(event) {
       .collection("youtubeRecommendations")
       .doc(datetimeString)  // Using datetime with underscores as document ID
       .set({ // Send recommendations to database
-        recommendations: data,
+        recommendations: data.recommendations,
+        topics: data.tabTexts,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       })
       .then(() => {
@@ -42,7 +43,7 @@ window.addEventListener("message", function(event) {
 document.getElementById("collect").addEventListener("click", () => {
   const username = document.getElementById("username").value;
   if (username) {
-    document.getElementById("bridge").contentWindow.postMessage({action: "collectRecommendations", username: username}, "*");
+    document.getElementById("bridge").contentWindow.postMessage({action: "collectData", username: username}, "*");
     document.getElementById("status").innerHTML = "Status: collecting";
   } else {
     console.error("Username is required.");

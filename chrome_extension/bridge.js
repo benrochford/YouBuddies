@@ -1,12 +1,10 @@
 // Listen for a message from popup.html
 window.addEventListener("message", function (event) {
-    if (event.data.action === "collectRecommendations") {
+    if (event.data.action === "collectData") {
         const username = event.data.username;
-        chrome.runtime.sendMessage({ action: "collectRecommendations", username: username }, function (response) {
+        chrome.runtime.sendMessage({ action: "collectData", username: username }, function (response) {
             // Send the response back to popup.html
-            console.log(username);
-            console.log(response);
-            window.parent.postMessage({ action: "collectedRecommendations", data: response }, "*");
+            window.parent.postMessage({ action: "collectData", data: response }, "*");
         });
     }
 });

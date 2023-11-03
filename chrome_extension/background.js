@@ -1,4 +1,4 @@
-function collectRecommendations() {
+function collectData() {
   const recommendations = [];
   const addedTitles = new Set();
   const recommendationElements = document.querySelectorAll('.ytd-rich-grid-media');
@@ -22,32 +22,50 @@ function collectRecommendations() {
       }
     });
   }
-  return recommendations;
+
+  const tabTexts = [];
+  const tabElements = document.querySelectorAll('yt-chip-cloud-chip-renderer yt-formatted-string');
+
+  tabElements.forEach((element) => {
+    const topic = element.innerText || 'N/A';
+    bad = ['N/A', 'All', 'Recently uploaded', 'Watched', 'New to you']
+    if (!bad.includes(topic)) {
+      tabTexts.push(topic);
+    }
+  });
+
+  return { recommendations, tabTexts };
 }
 
-let recs = [];
-const recsSet = new Set();
+let data = { recommendations: [], tabTexts: [] };
+const dataSet = new Set();
+
 chrome.webNavigation.onDOMContentLoaded.addListener(async ({ tabId, url }) => {
   if (url === "https://www.youtube.com/") {
     chrome.scripting.executeScript({
       target: { tabId },
-      func: collectRecommendations
+      func: collectData
     }).then(injectionResults => {
-      const newRecs = injectionResults[0].result;
+      const newData = injectionResults[0].result;
+      const newRecs = newData.recommendations;
+      const newTabTexts = newData.tabTexts;
+
       for (const newRec of newRecs) {
-        const recString = JSON.stringify(newRec);  // Convert object/array to string for comparison
-        if (!recsSet.has(recString)) {
-          recsSet.add(recString);
-          recs.push(newRec);
+        const recString = JSON.stringify(newRec);
+        if (!dataSet.has(recString)) {
+          dataSet.add(recString);
+          data.recommendations.push(newRec);
         }
       }
+
+      data.tabTexts = newTabTexts;
     });
   }
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "collectRecommendations") {
-    sendResponse(recs);
+  if (request.action === "collectData") {
+    sendResponse(data);
   }
   return true; // Required for asynchronous response
 });
