@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'friend_management_view.dart';
 import 'recommendation_view.dart';
+import 'trends_view.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -24,7 +25,7 @@ LinearGradient getAppBarGradient() {
   if (hour < 11) {
     return LinearGradient(
       colors: [
-        Color.fromARGB(255, 232, 162, 198),
+        Color.fromARGB(255, 205, 162, 232),
         const Color.fromARGB(255, 95, 147, 190)
       ],
       begin: Alignment.topLeft,
@@ -141,7 +142,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
           }
           final clientId = snapshot.data!;
           return DefaultTabController(
-            length: 2,
+            length: 3,
             child: Scaffold(
               appBar: AppBar(
                 flexibleSpace: Container(
@@ -151,8 +152,9 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                 ),
                 bottom: TabBar(
                   tabs: [
-                    Tab(text: 'Recommendations'),
-                    Tab(text: 'Friends'),
+                    Tab(icon: Icon(Icons.bar_chart_outlined)),
+                    Tab(icon: Icon(Icons.video_library_rounded)),
+                    Tab(icon: Icon(Icons.people)),
                   ],
                 ),
                 title: Text(
@@ -172,6 +174,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
               ),
               body: TabBarView(
                 children: [
+                  TrendsView(clientId: clientId),
                   RecommendationView(clientId: clientId),
                   FriendManagementView(clientId: clientId),
                 ],
