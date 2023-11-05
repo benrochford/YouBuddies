@@ -11,6 +11,7 @@ function injectAndToggleIframe() {
   iframe.style.width = '100%';
   iframe.style.height = '500px'
   iframe.style.border = '0';
+  iframe.style.borderRadius = '20px';
   iframe.style.display = 'block';
   iframe.src = "https://youbuddy-96438.web.app/"
   iframe.onload = () => {
@@ -42,15 +43,23 @@ function injectAndToggleIframe() {
   toggleButton.style.margin = 'auto';
 
   toggleButton.onclick = function () {
-  // Check the current display state of the iframe and toggle it
-  if (iframe.style.display === 'none') {
-    iframe.style.display = 'block';
-    toggleButton.innerText = 'Hide YouBuddies';
-  } else {
-    iframe.style.display = 'none';
-    toggleButton.innerText = 'Show YouBuddies';
-  }
+    // Set the initial height for the animation
+    const initialHeight = '500px';
+    // Check the current display state of the iframe and toggle it
+    if (iframe.style.height === '0px' || iframe.style.height === '') {
+      iframe.style.height = initialHeight; // Animate to the initial height
+      toggleButton.innerText = 'Hide YouBuddies';
+    } else {
+      iframe.style.height = '0px'; // Animate to height 0
+      // Using a timeout to wait for the transition to finish before hiding the element
+      setTimeout(() => {
+        toggleButton.innerText = 'Show YouBuddies';
+      }, 350); // The timeout duration should match the transition duration
+    }
   };
+  // Apply a transition to the height property
+  iframe.style.transition = 'height 0.35s ease-in-out';
+  
   // Insert the button just above the iframe
   wrapperDiv.insertBefore(toggleButton, iframe);
 
