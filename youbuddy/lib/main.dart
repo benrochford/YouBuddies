@@ -141,45 +141,140 @@ class _InitializationWidgetState extends State<InitializationWidget> {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           final clientId = snapshot.data!;
-          return DefaultTabController(
-            length: 3,
-            child: Scaffold(
-              appBar: AppBar(
-                flexibleSpace: Container(
-                  decoration: BoxDecoration(
-                    gradient: getAppBarGradient(), // updated call here
+          // Use LayoutBuilder to build UI based on available screen width
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              // Define a breakpoint for switching to vertical navigation
+              const double breakpoint = 600;
+              if (constraints.maxWidth > breakpoint) {
+                // Wide screen layout with vertical navigation
+                return DefaultTabController(
+                  length: 3,
+                  initialIndex: 1,
+                  child: Scaffold(
+                    appBar: AppBar(
+                      title: Text(
+                        'YouBuddies',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      actions: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Center(child: Text('[$clientId]')),
+                        ),
+                        TextButton(
+                          onPressed: _logout,
+                          child: Text('Logout'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                      flexibleSpace: Container(
+                        decoration: BoxDecoration(
+                          gradient: getAppBarGradient(),
+                        ),
+                      ),
+                    ),
+                    body: Row(
+                      children: [
+                        Container(
+                          width: 72, // Width of the NavigationRail
+                          decoration: BoxDecoration(
+                            gradient: getAppBarGradient(),
+                          ),
+                          child: Builder(
+                            builder: (context) {
+                              // Obtain the DefaultTabController for the context
+                              final TabController tabController =
+                                  DefaultTabController.of(context);
+                              return NavigationRail(
+                                backgroundColor: Colors
+                                    .transparent, // Makes it take the gradient background
+                                selectedIndex: tabController.index,
+                                onDestinationSelected: (int index) {
+                                  // Change the tab index upon selection
+                                  tabController.animateTo(index);
+                                },
+                                destinations: [
+                                  NavigationRailDestination(
+                                    icon: Icon(Icons.bar_chart_outlined),
+                                    label: Text('Trends'),
+                                  ),
+                                  NavigationRailDestination(
+                                    icon: Icon(Icons.video_library_rounded),
+                                    label: Text('Recommendations'),
+                                  ),
+                                  NavigationRailDestination(
+                                    icon: Icon(Icons.people),
+                                    label: Text('Friends'),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              TrendsView(clientId: clientId),
+                              RecommendationView(clientId: clientId),
+                              FriendManagementView(clientId: clientId),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                bottom: TabBar(
-                  tabs: [
-                    Tab(icon: Icon(Icons.bar_chart_outlined)),
-                    Tab(icon: Icon(Icons.video_library_rounded)),
-                    Tab(icon: Icon(Icons.people)),
-                  ],
-                ),
-                title: Text(
-                  'YouBuddies',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                actions: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Center(child: Text('[$clientId]')),
+                );
+              } else {
+                // Default layout with horizontal TabBar
+                return DefaultTabController(
+                  length: 3,
+                  initialIndex: 1,
+                  child: Scaffold(
+                    appBar: AppBar(
+                      flexibleSpace: Container(
+                        decoration: BoxDecoration(
+                          gradient: getAppBarGradient(),
+                        ),
+                      ),
+                      bottom: TabBar(
+                        tabs: [
+                          Tab(icon: Icon(Icons.bar_chart_outlined)),
+                          Tab(icon: Icon(Icons.video_library_rounded)),
+                          Tab(icon: Icon(Icons.people)),
+                        ],
+                      ),
+                      title: Text(
+                        'YouBuddies',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      actions: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Center(child: Text('[$clientId]')),
+                        ),
+                        TextButton(
+                          onPressed: _logout,
+                          child: Text('Logout'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    body: TabBarView(
+                      children: [
+                        TrendsView(clientId: clientId),
+                        RecommendationView(clientId: clientId),
+                        FriendManagementView(clientId: clientId),
+                      ],
+                    ),
                   ),
-                  TextButton(
-                    onPressed: _logout,
-                    child: Text('logout'),
-                  ),
-                ],
-              ),
-              body: TabBarView(
-                children: [
-                  TrendsView(clientId: clientId),
-                  RecommendationView(clientId: clientId),
-                  FriendManagementView(clientId: clientId),
-                ],
-              ),
-            ),
+                );
+              }
+            },
           );
         }
         return Center(child: CircularProgressIndicator());
