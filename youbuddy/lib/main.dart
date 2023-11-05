@@ -39,7 +39,7 @@ LinearGradient getAppBarGradient() {
     );
   } else if (hour < 20) {
     return LinearGradient(
-      colors: [Colors.red.shade200, Colors.purple.shade200],
+      colors: [Color.fromARGB(255, 235, 169, 97), Colors.purple.shade200],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
