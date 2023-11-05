@@ -4,11 +4,11 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
-    "description": "An app for managing recommendations and friends.",
+    "description": "An app for collaborative recommendations among friends.",
     "icons": [
       {
-        "src": "icons/Icon-192.png",
-        "sizes": "192x192",
+        "src": "icons/Icon-128.png",
+        "sizes": "128x128",
         "type": "image/png"
       },
       {
