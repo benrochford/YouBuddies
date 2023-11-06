@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:youbuddy/firebase_utils.dart';
 
 class FriendManagementView extends StatefulWidget {
   final String clientId;
-  FriendManagementView({required this.clientId});
+  final String clientFriendId;
+
+  FriendManagementView({required this.clientId, required this.clientFriendId});
 
   @override
   _FriendManagementViewState createState() => _FriendManagementViewState();
@@ -12,7 +15,7 @@ class FriendManagementView extends StatefulWidget {
 class _FriendManagementViewState extends State<FriendManagementView> {
   final _friendIdController = TextEditingController();
 
-  Future<void> _addFriend({bool testing = true}) async {
+  Future<void> _addFriend({bool testing = false}) async {
     final friendId = _friendIdController.text;
     if (friendId.isNotEmpty) {
       final clientId = widget.clientId;
@@ -24,16 +27,10 @@ class _FriendManagementViewState extends State<FriendManagementView> {
       }
 
       // Check if friendId exists as a clientId in the database
-      final friendExists = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(friendId)
-          .get()
-          .then((DocumentSnapshot documentSnapshot) {
-        return documentSnapshot.exists;
-      });
+      final friendUID = await getUserFromFriendID(friendId);
 
-      if (friendExists) {
-        _saveFriend(clientId, friendId);
+      if (friendUID != null) {
+        _saveFriend(clientId, friendUID);
       } else {
         print('Friend ID does not exist in the database.');
       }
@@ -41,22 +38,26 @@ class _FriendManagementViewState extends State<FriendManagementView> {
   }
 
   // Helper method to save friend
-  void _saveFriend(String clientId, String friendId) {
+  void _saveFriend(String clientId, String friendUID) {
     FirebaseFirestore.instance
         .collection('users')
         .doc(clientId)
         .collection('friends')
-        .doc(friendId)
-        .set({'id': friendId});
+        .doc(friendUID)
+        .set({'id': friendUID});
   }
 
   @override
   Widget build(BuildContext context) {
-    final clientId = widget.clientId;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Follow Friends'),
-      ),
+          title: Text('Follow Friends'),
+          actions: [Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text('Your Friend ID: ${widget.clientFriendId}'),
+            ),
+          )]),
       body: Column(
         children: [
           Padding(
@@ -73,26 +74,40 @@ class _FriendManagementViewState extends State<FriendManagementView> {
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
-                  .doc(clientId)
+                  .doc(widget.clientId)
                   .collection('friends')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return CircularProgressIndicator();
+                if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
                 final friends = snapshot.data!.docs;
                 return ListView.builder(
                   itemCount: friends.length,
                   itemBuilder: (context, index) {
-                    final friendId = friends[index]['id'];
+                    final friendUID = friends[index]['id'];
+                    final fetchFriendProfile = getUserProfile(friendUID);
+
                     return ListTile(
-                      title: Text(friendId),
+                      title: FutureBuilder<Map<String, dynamic>?>(
+                          future: fetchFriendProfile,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.done) {
+                              final profile = snapshot.data;
+                              if (snapshot.hasError || profile == null) {
+                                return Text('Error: ${snapshot.error}');
+                              }
+                              return Text(profile['name']);
+                            }
+                            return Center(child: CircularProgressIndicator(),);
+                          }),
                       trailing: IconButton(
                         icon: Icon(Icons.delete),
                         onPressed: () {
                           FirebaseFirestore.instance
                               .collection('users')
-                              .doc(clientId)
+                              .doc(widget.clientId)
                               .collection('friends')
-                              .doc(friendId)
+                              .doc(friendUID)
                               .delete();
                         },
                       ),

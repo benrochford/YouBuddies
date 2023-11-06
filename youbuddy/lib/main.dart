@@ -1,7 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_utils.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'friend_management_view.dart';
 import 'recommendation_view.dart';
@@ -11,9 +13,11 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(MyApp());
 }
 
@@ -69,78 +73,93 @@ class InitializationWidget extends StatefulWidget {
 }
 
 class _InitializationWidgetState extends State<InitializationWidget> {
-  Future<String>? _initializationFuture;
+  Future<void>? _initializationFuture;
+  late String name;
+  late String friendId;
 
   @override
   void initState() {
     super.initState();
-    _initializationFuture = _initializeApp();
+    // line so that the login dialog does not reference context before the widget tree has been built
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      setState(() {
+        _initializationFuture = _initializeApp();
+      });
+    });
   }
 
-  Future<String> _initializeApp() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? clientId = prefs.getString('clientId');
-
-    if (clientId == null || clientId.isEmpty) {
-      clientId = await _getClientIdFromUser(context); // Pass context here
-      await prefs.setString('clientId', clientId);
+  Future<void> _initializeApp() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      await _getClientIdFromUser(context);
     }
 
-    return clientId;
+    var profile = await getUserProfile(FirebaseAuth.instance.currentUser!.uid);
+    name = profile?['name'];
+    friendId = profile?['friendId'];
+  }
+
+  Future<UserCredential> _loginWithGoogle() async {
+    var provider = GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/youtube');
+    var credential = await FirebaseAuth.instance.signInWithPopup(provider);
+
+    if (credential.additionalUserInfo!.isNewUser) {
+      Map<String, dynamic> profile = {};
+      profile['name'] = credential.user!.displayName;
+      profile['friendId'] = '${UniqueKey().hashCode}';
+
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(credential.user!.uid)
+          .set(profile);
+
+      FirebaseFirestore.instance
+          .collection('tokens')
+          .doc(credential.user!.uid)
+          .set({'refreshToken': credential.user!.refreshToken});
+    }
+
+    return credential;
   }
 
   void _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('clientId');
+    await FirebaseAuth.instance.signOut();
     // restart the app to get a new clientId
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (context) => InitializationWidget(),
     ));
   }
 
-  Future<String> _getClientIdFromUser(BuildContext context) async {
-    final TextEditingController _clientIdController = TextEditingController();
-    String? clientId;
-    return showDialog<String>(
+  Future<void> _getClientIdFromUser(BuildContext context) async {
+    return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Login'),
-          content: SingleChildScrollView(
-            child: TextField(
-              controller: _clientIdController,
-              decoration: InputDecoration(
-                labelText: 'Provide username',
-              ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('YES!'),
-              onPressed: () {
-                clientId = _clientIdController.text;
-                if (clientId != null && clientId!.isNotEmpty) {
-                  Navigator.of(context).pop(clientId);
+          content: ElevatedButton(
+              onPressed: () async {
+                var credential = await _loginWithGoogle();
+                if (credential.user != null) {
+                  Navigator.of(context).pop();
                 }
               },
-            ),
-          ],
+              child: Text('Sign in with Google')),
         );
       },
-    ).then((value) => value ?? '');
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String>(
+    return FutureBuilder<void>(
       future: _initializationFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-          final clientId = snapshot.data!;
+
           // Use LayoutBuilder to build UI based on available screen width
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -160,7 +179,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                       actions: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Center(child: Text('[$clientId]')),
+                          child: Center(child: Text('[$name]')),
                         ),
                         TextButton(
                           onPressed: _logout,
@@ -189,12 +208,15 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                               final TabController tabController =
                                   DefaultTabController.of(context);
                               return NavigationRail(
-                                backgroundColor: Colors
-                                    .transparent, // Makes it take the gradient background
+                                backgroundColor: Colors.transparent,
+                                // Makes it take the gradient background
                                 selectedIndex: tabController.index,
                                 onDestinationSelected: (int index) {
                                   // Change the tab index upon selection
                                   tabController.animateTo(index);
+                                  setState(() {
+                                    tabController.index = index;
+                                  });
                                 },
                                 destinations: [
                                   NavigationRailDestination(
@@ -217,9 +239,16 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              TrendsView(clientId: clientId),
-                              RecommendationView(clientId: clientId),
-                              FriendManagementView(clientId: clientId),
+                              TrendsView(
+                                  clientId:
+                                      FirebaseAuth.instance.currentUser!.uid),
+                              RecommendationView(
+                                  clientId:
+                                      FirebaseAuth.instance.currentUser!.uid),
+                              FriendManagementView(
+                                  clientId:
+                                      FirebaseAuth.instance.currentUser!.uid,
+                              clientFriendId: friendId,),
                             ],
                           ),
                         ),
@@ -253,7 +282,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                       actions: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Center(child: Text('[$clientId]')),
+                          child: Center(child: Text('[$name]')),
                         ),
                         TextButton(
                           onPressed: _logout,
@@ -266,9 +295,13 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                     ),
                     body: TabBarView(
                       children: [
-                        TrendsView(clientId: clientId),
-                        RecommendationView(clientId: clientId),
-                        FriendManagementView(clientId: clientId),
+                        TrendsView(
+                            clientId: FirebaseAuth.instance.currentUser!.uid),
+                        RecommendationView(
+                            clientId: FirebaseAuth.instance.currentUser!.uid),
+                        FriendManagementView(
+                            clientId: FirebaseAuth.instance.currentUser!.uid,
+                          clientFriendId: friendId,),
                       ],
                     ),
                   ),
