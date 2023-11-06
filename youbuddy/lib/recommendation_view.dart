@@ -5,6 +5,7 @@ import 'dart:math';
 
 class RecommendationView extends StatefulWidget {
   final String clientId;
+
   RecommendationView({required this.clientId});
 
   @override
@@ -20,6 +21,7 @@ class _RecommendationViewState extends State<RecommendationView>
 
   // animation stuff for funny empty list icon
   late AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
@@ -352,67 +354,61 @@ class _RecommendationViewState extends State<RecommendationView>
       future: fetchFriends(),
       builder: (context, friendsSnapshot) {
         if (!friendsSnapshot.hasData) {
-          return CircularProgressIndicator();
+          return Center(child: CircularProgressIndicator());
         }
 
         final friendsList = friendsSnapshot.data!;
-        return FutureBuilder<Map<String, List<Map<String, dynamic>>>>(
-          future: fetchRecommendationsFromFriends(friendsList),
-          builder: (context, recommendationsSnapshot) {
-            if (!recommendationsSnapshot.hasData) {
-              return CircularProgressIndicator();
-            }
+        return FutureBuilder<List<Map<String, dynamic>>>(
+            future: Future.wait([
+              fetchRecommendationsFromFriends(friendsList),
+              findCommonRecommendations(friendsList)
+            ]),
+            builder: (context, recommendationsSnapshot) {
+              if (!recommendationsSnapshot.hasData) {
+                return Center(child: CircularProgressIndicator());
+              }
 
-            final recommendationsMap = recommendationsSnapshot.data!;
+              final recommendationsMap = recommendationsSnapshot.data![0]
+                  as Map<String, List<Map<String, dynamic>>>;
+              final commonRecsMap = recommendationsSnapshot.data![1]
+                  as Map<String, Map<String, dynamic>>;
 
-            return FutureBuilder<Map<String, Map<String, dynamic>>>(
-                future: findCommonRecommendations(friendsList),
-                builder: (context, commonRecsSnapshot) {
-                  if (!commonRecsSnapshot.hasData) {
-                    return CircularProgressIndicator();
-                  }
-
-                  final commonRecsMap = commonRecsSnapshot.data!;
-
-                  return Scaffold(
-                    appBar: AppBar(
-                      title: Text('Recommendations from friends'),
-                    ),
-                    body: ListView(
-                      children: [
-                        buildCommonRecommendationsWidget(commonRecsMap),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: NeverScrollableScrollPhysics(),
-                          itemCount: friendsList.length,
-                          itemBuilder: (context, index) {
-                            final friendName = friendsList[index];
-                            final recommendations =
-                                recommendationsMap[friendName];
-                            return ExpansionTile(
-                              title: Text(
-                                friendName,
-                                style: TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              initiallyExpanded:
-                                  expansionStateMap[friendName] ?? false,
-                              onExpansionChanged: (bool isExpanded) {
-                                setState(() {
-                                  expansionStateMap[friendName] = isExpanded;
-                                });
-                              },
-                              children: buildRecommendationList(
-                                  recommendations ?? []),
-                            );
+              return Scaffold(
+                appBar: AppBar(
+                  title: Text('Recommendations from friends'),
+                ),
+                body: ListView(
+                  children: [
+                    buildCommonRecommendationsWidget(commonRecsMap),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: friendsList.length,
+                      itemBuilder: (context, index) {
+                        final friendName = friendsList[index];
+                        final recommendations = recommendationsMap[friendName];
+                        return ExpansionTile(
+                          title: Text(
+                            friendName,
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          initiallyExpanded:
+                              expansionStateMap[friendName] ?? false,
+                          onExpansionChanged: (bool isExpanded) {
+                            setState(() {
+                              expansionStateMap[friendName] = isExpanded;
+                            });
                           },
-                        )
-                      ],
-                    ),
-                  );
-                });
-          },
-        );
+                          children:
+                              buildRecommendationList(recommendations ?? []),
+                        );
+                      },
+                    )
+                  ],
+                ),
+              );
+            });
       },
     );
   }
