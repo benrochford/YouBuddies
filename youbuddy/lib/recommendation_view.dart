@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math';
 
+import 'package:youbuddy/firebase_utils.dart';
+
 class RecommendationView extends StatefulWidget {
   final String clientId;
 
@@ -385,19 +387,34 @@ class _RecommendationViewState extends State<RecommendationView>
                       physics: NeverScrollableScrollPhysics(),
                       itemCount: friendsList.length,
                       itemBuilder: (context, index) {
-                        final friendName = friendsList[index];
-                        final recommendations = recommendationsMap[friendName];
+                        final friendUID = friendsList[index];
+                        final recommendations = recommendationsMap[friendUID];
                         return ExpansionTile(
-                          title: Text(
-                            friendName,
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
+                          title: FutureBuilder<Map<String, dynamic>?>(
+                            future: getUserProfile(friendUID),
+                            builder: (context, snapshot) {
+                              var text = '';
+                              if (snapshot.connectionState == ConnectionState.done) {
+                                final profile = snapshot.data;
+                                if (snapshot.hasError || profile == null) {
+                                  text = '<Could not find friend name>';
+                                } else {
+                                  text = profile['name'];
+                                }
+                              }
+                              return Text(
+                                  text,
+                                  style: TextStyle(
+                                  fontSize:
+                               18, fontWeight: FontWeight.bold),
+                        );
+                            }
                           ),
                           initiallyExpanded:
-                              expansionStateMap[friendName] ?? false,
+                              expansionStateMap[friendUID] ?? false,
                           onExpansionChanged: (bool isExpanded) {
                             setState(() {
-                              expansionStateMap[friendName] = isExpanded;
+                              expansionStateMap[friendUID] = isExpanded;
                             });
                           },
                           children:

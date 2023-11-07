@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:youbuddy/firebase_utils.dart';
 
 class FriendManagementView extends StatefulWidget {
@@ -50,14 +51,16 @@ class _FriendManagementViewState extends State<FriendManagementView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-          title: Text('Follow Friends'),
-          actions: [Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text('Your Friend ID: ${widget.clientFriendId}'),
-            ),
-          )]),
+      appBar: AppBar(title: Text('Follow Friends'), actions: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: SelectableText('Your Friend ID: ${widget.clientFriendId}',
+                onTap: () async => await Clipboard.setData(
+                    ClipboardData(text: widget.clientFriendId))),
+          ),
+        )
+      ]),
       body: Column(
         children: [
           Padding(
@@ -78,7 +81,8 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                   .collection('friends')
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
+                if (!snapshot.hasData)
+                  return Center(child: CircularProgressIndicator());
                 final friends = snapshot.data!.docs;
                 return ListView.builder(
                   itemCount: friends.length,
@@ -98,7 +102,9 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                               }
                               return Text(profile['name']);
                             }
-                            return Center(child: CircularProgressIndicator(),);
+                            return Center(
+                              child: CircularProgressIndicator(),
+                            );
                           }),
                       trailing: IconButton(
                         icon: Icon(Icons.delete),

@@ -1,10 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<Map<String, dynamic>?> getUserProfile(String clientId) async {
-  var snapshot = await FirebaseFirestore.instance
-      .collection('users')
-      .doc(clientId)
-      .get();
+  var snapshot =
+      await FirebaseFirestore.instance.collection('users').doc(clientId).get();
 
   if (snapshot.exists) {
     final profile = snapshot.data()!;
@@ -16,9 +14,9 @@ Future<Map<String, dynamic>?> getUserProfile(String clientId) async {
 Future<String?> getUserFromFriendID(String friendId) async {
   var snapshot = await FirebaseFirestore.instance
       .collection('users')
-      .where('friendId', arrayContains: friendId)
+      .where('friendId', isEqualTo: friendId)
       .get();
 
-  if (snapshot.size > 0) snapshot.docs.first.id;
+  if (snapshot.docs.isNotEmpty) return snapshot.docs.first.id;
   return null;
 }
