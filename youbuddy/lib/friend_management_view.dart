@@ -68,12 +68,12 @@ class _FriendManagementViewState extends State<FriendManagementView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Follow Friends'), actions: [
+      appBar: AppBar(title: Text('Follow Buddies'), actions: [
         Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: SelectableText.rich(
-              TextSpan(text: 'Your Friend ID: ', children: [
+              TextSpan(text: 'Your Buddy Tag: ', children: [
                 TextSpan(
                     text: widget.clientFriendId,
                     style: TextStyle(color: Colors.blue),
@@ -82,7 +82,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                         await Clipboard.setData(
                             ClipboardData(text: widget.clientFriendId));
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Friend ID copied to clipboard!')));
+                            content: Text('Buddy Tag copied to clipboard!')));
                       })
               ]),
             ),
@@ -96,7 +96,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
             child: TextField(
               controller: _friendIdController,
               decoration: InputDecoration(
-                labelText: 'Enter Friend ID to follow',
+                labelText: 'Enter a Buddy Tag to follow',
               ),
               onSubmitted: (_) => _addFriend(),
             ),

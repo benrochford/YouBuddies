@@ -377,7 +377,7 @@ class _RecommendationViewState extends State<RecommendationView>
 
               return Scaffold(
                 appBar: AppBar(
-                  title: Text('Recommendations from friends'),
+                  title: Text('Recommendations from Buddies'),
                 ),
                 body: ListView(
                   children: [
@@ -391,25 +391,25 @@ class _RecommendationViewState extends State<RecommendationView>
                         final recommendations = recommendationsMap[friendUID];
                         return ExpansionTile(
                           title: FutureBuilder<Map<String, dynamic>?>(
-                            future: getUserProfile(friendUID),
-                            builder: (context, snapshot) {
-                              var text = '';
-                              if (snapshot.connectionState == ConnectionState.done) {
-                                final profile = snapshot.data;
-                                if (snapshot.hasError || profile == null) {
-                                  text = '<Could not find friend name>';
-                                } else {
-                                  text = profile['name'];
+                              future: getUserProfile(friendUID),
+                              builder: (context, snapshot) {
+                                var text = '';
+                                if (snapshot.connectionState ==
+                                    ConnectionState.done) {
+                                  final profile = snapshot.data;
+                                  if (snapshot.hasError || profile == null) {
+                                    text = '<Could not find friend name>';
+                                  } else {
+                                    text = profile['name'];
+                                  }
                                 }
-                              }
-                              return Text(
+                                return Text(
                                   text,
                                   style: TextStyle(
-                                  fontSize:
-                               18, fontWeight: FontWeight.bold),
-                        );
-                            }
-                          ),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
+                                );
+                              }),
                           initiallyExpanded:
                               expansionStateMap[friendUID] ?? false,
                           onExpansionChanged: (bool isExpanded) {
