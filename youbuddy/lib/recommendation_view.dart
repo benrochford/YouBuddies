@@ -350,6 +350,22 @@ class _RecommendationViewState extends State<RecommendationView>
     }).toList();
   }
 
+  Map<String, String> _friendNamesCache = {};
+
+  Future<void> _fetchAndCacheFriendNames(List<String> friendUIDs) async {
+    for (var uid in friendUIDs) {
+      if (!_friendNamesCache.containsKey(uid)) {
+        try {
+          final userProfile = await getUserProfile(uid);
+          _friendNamesCache[uid] =
+              userProfile?['name'] ?? '<Could not find friend name>';
+        } catch (e) {
+          _friendNamesCache[uid] = '<Could not find friend name>';
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<String>>(
@@ -360,6 +376,8 @@ class _RecommendationViewState extends State<RecommendationView>
         }
 
         final friendsList = friendsSnapshot.data!;
+        _fetchAndCacheFriendNames(friendsList);
+
         return FutureBuilder<List<Map<String, dynamic>>>(
             future: Future.wait([
               fetchRecommendationsFromFriends(friendsList),
@@ -377,7 +395,7 @@ class _RecommendationViewState extends State<RecommendationView>
 
               return Scaffold(
                 appBar: AppBar(
-                  title: Text('Recommendations from Buddies'),
+                  title: Text('Recommendations from friends'),
                 ),
                 body: ListView(
                   children: [
@@ -389,27 +407,14 @@ class _RecommendationViewState extends State<RecommendationView>
                       itemBuilder: (context, index) {
                         final friendUID = friendsList[index];
                         final recommendations = recommendationsMap[friendUID];
+                        final friendName =
+                            _friendNamesCache[friendUID] ?? 'Loading...';
                         return ExpansionTile(
-                          title: FutureBuilder<Map<String, dynamic>?>(
-                              future: getUserProfile(friendUID),
-                              builder: (context, snapshot) {
-                                var text = '';
-                                if (snapshot.connectionState ==
-                                    ConnectionState.done) {
-                                  final profile = snapshot.data;
-                                  if (snapshot.hasError || profile == null) {
-                                    text = '<Could not find friend name>';
-                                  } else {
-                                    text = profile['name'];
-                                  }
-                                }
-                                return Text(
-                                  text,
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold),
-                                );
-                              }),
+                          title: Text(
+                            friendName,
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
                           initiallyExpanded:
                               expansionStateMap[friendUID] ?? false,
                           onExpansionChanged: (bool isExpanded) {
