@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
@@ -55,9 +56,20 @@ class _FriendManagementViewState extends State<FriendManagementView> {
         Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: SelectableText('Your Friend ID: ${widget.clientFriendId}',
-                onTap: () async => await Clipboard.setData(
-                    ClipboardData(text: widget.clientFriendId))),
+            child: SelectableText.rich(
+              TextSpan(text: 'Your Friend ID: ', children: [
+                TextSpan(
+                    text: widget.clientFriendId,
+                    style: TextStyle(color: Colors.blue),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () async {
+                        await Clipboard.setData(
+                            ClipboardData(text: widget.clientFriendId));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Friend ID copied to clipboard!')));
+                      })
+              ]),
+            ),
           ),
         )
       ]),
