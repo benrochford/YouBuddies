@@ -17,6 +17,22 @@ class FriendManagementView extends StatefulWidget {
 class _FriendManagementViewState extends State<FriendManagementView> {
   final _friendIdController = TextEditingController();
 
+  Map<String, dynamic> friendProfiles = {};
+  // Fetch and update friend profiles
+  Future<void> fetchFriendProfiles(List friends) async {
+    Map<String, dynamic> profiles = {};
+    for (var friend in friends) {
+      final friendUID = friend['id'];
+      final profileData = await getUserProfile(friendUID);
+      profiles[friendUID] = profileData;
+    }
+    if (mounted) {
+      setState(() {
+        friendProfiles = profiles;
+      });
+    }
+  }
+
   Future<void> _addFriend({bool testing = false}) async {
     final friendId = _friendIdController.text;
     if (friendId.isNotEmpty) {
@@ -96,28 +112,18 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                 if (!snapshot.hasData)
                   return Center(child: CircularProgressIndicator());
                 final friends = snapshot.data!.docs;
+
+                fetchFriendProfiles(friends);
+
                 return ListView.builder(
                   itemCount: friends.length,
                   itemBuilder: (context, index) {
                     final friendUID = friends[index]['id'];
-                    final fetchFriendProfile = getUserProfile(friendUID);
+                    final profile = friendProfiles[friendUID];
 
                     return ListTile(
-                      title: FutureBuilder<Map<String, dynamic>?>(
-                          future: fetchFriendProfile,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.done) {
-                              final profile = snapshot.data;
-                              if (snapshot.hasError || profile == null) {
-                                return Text('Error: ${snapshot.error}');
-                              }
-                              return Text(profile['name']);
-                            }
-                            return Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }),
+                      title: Text(
+                          profile != null ? profile['name'] : 'Loading...'),
                       trailing: IconButton(
                         icon: Icon(Icons.delete),
                         onPressed: () {
