@@ -28,6 +28,10 @@
       button:hover {
         background-color: #85C7E5;
       }
+      .button-container {
+        display: flex;
+        column-gap: 20px;
+      }
       iframe {
         border: none;
         padding: 0px;
@@ -38,7 +42,10 @@
     <h2>YouBuddies! rec collector</h2>
     <label for="username">Username:</label>
     <input type="text" id="username">
-    <button id="collect">Collect Recommendations</button>
+      <div class="button-container">
+        <button id="collect">Collect Recommendations</button>
+        <button id="collectAll">Collect Recommendations for All Users</button>
+      </div>
     <h4 id="status">Status: ready. open / reload youtube.com and click the button</h4>
     <p id="invitation">
       Once you've uploaded your recommendations, visit 
