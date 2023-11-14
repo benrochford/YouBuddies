@@ -66,6 +66,35 @@ function injectAndToggleIframe() {
   targetDiv.insertAdjacentElement('afterend', wrapperDiv);
 }
 
+/**
+ * Signs user in and saves refresh token if new
+ */
+async function loginWithGoogle() {
+  const oauth2Config = chrome.runtime.getManifest().oauth2;
+  const authUrl = new URL("/o/oauth2/v2/auth", "https://accounts.google.com");
+  authUrl.searchParams.set("redirect_uri", chrome.identity.getRedirectURL("oauth2"));
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("access_type", "offline");
+  authUrl.searchParams.set("scope", oauth2Config.scopes.join(" "));
+  authUrl.searchParams.set("client_id", oauth2Config.client_id);
+
+  const authResult = await chrome.identity.launchWebAuthFlow({url: authUrl.href, interactive: true});
+  const redirectUrl = new URL(authResult);
+
+  const authCode = redirectUrl.searchParams.get("code");
+  const tokenUrl = new URL("/token", "https://oauth2.googleapis.com");
+  tokenUrl.searchParams.set("code", authCode);
+  tokenUrl.searchParams.set("redirect_uri", chrome.identity.getRedirectURL("oauth2"));
+  tokenUrl.searchParams.set("client_id", oauth2Config.client_id);
+  tokenUrl.searchParams.set("client_secret", oauth2Config.client_secret);
+  tokenUrl.searchParams.set("grant_type", "authorization_code");
+
+  const response = await fetch(tokenUrl, {
+    method: "POST"
+  });
+  return await response.json();
+}
+
 bad = ['N/A', 'All', 'Recently uploaded', 'Watched', 'New to you'];
 
 async function collectAllUserData(oauthTokens) {
@@ -213,6 +242,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse(data);
   } else if (request.action === "collectAllUserData") {
     collectAllUserData(request.oauthTokens).then((data) => sendResponse(data));
+  } else if (request.action === "login") {
+    loginWithGoogle().then((token) => sendResponse(token));
   }
   return true; // Required for asynchronous response
 });

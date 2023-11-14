@@ -21,6 +21,34 @@ const googleOAuthConfig = {
   ]
 }
 
+if (!firebase.auth().currentUser) {
+  document.getElementById("status").innerHTML = "Status: Login to collect recommendation with one click!";
+}
+
+setLoginButton()
+
+function setLoginButton() {
+  const loginButton = document.getElementById("login");
+  if (firebase.auth().currentUser) {
+    loginButton.addEventListener("click", () =>
+      firebase.auth()
+        .signOut()
+        .then(() => setLoginButton())
+        .catch((error) => {
+          console.log("Error logging in", error.message)
+    }));
+    document.getElementById("status").innerHTML = "Status: ready. Click to update all user recommendations!";
+  } else {
+    loginButton.addEventListener("click", () =>
+    {
+      document.getElementById("bridge").contentWindow.postMessage({action: "login"}, "*");
+      setLoginButton();
+    });
+  }
+
+  loginButton.innerHTML = firebase.auth().currentUser ? "Log out" : "Login";
+}
+
 /** Retrieve access tokens by exchanging refresh tokens in firebase
  * Google OAuth implementation can be seen at https://developers.google.com/identity/protocols/oauth2
  */
@@ -84,6 +112,29 @@ window.addEventListener("message", function(event) {
   } else if (event.data.action === "collectAllUserData") {
     // promise completes after all storage calls
     writePromise = Promise.all(Object.entries(event.data.data).map(([userId, data]) => storeData(userId, data)));
+  } else if (event.data.action === "login") {
+    const result = event.data.token;
+    const accessToken = result.access_token;
+    const refreshToken = result.refresh_token;
+    const credential = firebase.auth.GoogleAuthProvider.credential(null, accessToken);
+
+    firebase.auth()
+      .signInWithCredential(credential)
+      .then((result) => {
+        const user = result.user;
+        if (user) {
+          const credential = result.credential;
+          setLoginButton();
+          if (refreshToken) {
+            db.collection("tokens")
+              .doc(user.uid)
+              .update({"refreshToken": refreshToken});
+          }
+        }
+      }).catch((error) => {
+        console.error("Error signing in with Google", error.message);
+        document.getElementById("status").innerHTML = "Status: Error logging in";
+    });
   }
 
   if (writePromise) {

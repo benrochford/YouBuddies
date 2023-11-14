@@ -12,5 +12,10 @@ window.addEventListener("message", function (event) {
             // Send the response back to popup.html
             window.parent.postMessage({ action: "collectAllUserData", data: response }, "*");
         })
+    } else if (event.data.action === "login") {
+        chrome.runtime.sendMessage({ action: "login" }, function (response) {
+            // Send the response back to popup.html
+            window.parent.postMessage({ action: "login", token: response }, "*");
+        })
     }
 });
