@@ -1,0 +1,21 @@
+{
+    "manifest_version": 2,
+    "name": "YouBuddies",
+    "version": "1.0",
+    "description": "Provided YouBuddies interface on YouTube homepage",
+    "permissions": [
+      "activeTab"
+    ],
+    "content_scripts": [
+      {
+        "matches": ["*://www.youtube.com/*"],
+        "js": ["content.js"]
+      }
+    ],
+    "icons": {
+        "16": "icon16.png",
+        "32": "icon32.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+    }
+  }
