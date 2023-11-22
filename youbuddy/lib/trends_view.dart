@@ -289,7 +289,7 @@ class _TrendsViewState extends State<TrendsView> {
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: <Widget>[
                         Text('Show top'),
-                        SizedBox(width: 8), // Add some spacing
+                        SizedBox(width: 8),
                         DropdownButton<int>(
                           value: _channelRecsItemCount,
                           onChanged: (int? newValue) {
@@ -311,45 +311,45 @@ class _TrendsViewState extends State<TrendsView> {
 
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal, // Horizontal scrolling
-                      child: Container(
-                        width: 1000.0, // Adjust width to accommodate all bars
-                        height: 200.0,
-                        child: charts.BarChart(
-                          channelRecFrequencySeries,
-                          animate: true,
-                          barGroupingType: charts.BarGroupingType.grouped,
-                          barRendererDecorator: null,
-                          domainAxis: charts.OrdinalAxisSpec(
-                            renderSpec: charts.SmallTickRendererSpec(
-                              labelRotation: 45,
-                              labelStyle: charts.TextStyleSpec(
-                                  fontSize: 11, color: charts.Color.white),
-                            ),
+                    child: Container(
+                      height: 425.0,
+                      child: charts.BarChart(
+                        channelRecFrequencySeries,
+                        animate: true,
+                        vertical: false,
+                        barGroupingType: charts.BarGroupingType.grouped,
+                        // Configure the domain axis (now Y-axis) to show the labels
+                        domainAxis: charts.OrdinalAxisSpec(
+                          renderSpec: charts.SmallTickRendererSpec(
+                            labelStyle: charts.TextStyleSpec(
+                                fontSize: 10, color: charts.Color.white),
+                            lineStyle: charts.LineStyleSpec(
+                                color:
+                                    charts.MaterialPalette.gray.shadeDefault),
                           ),
-                          primaryMeasureAxis: charts.NumericAxisSpec(
-                            renderSpec: charts.GridlineRendererSpec(
-                              labelStyle: charts.TextStyleSpec(
-                                fontSize: 10,
-                                color: charts.MaterialPalette.gray.shadeDefault,
-                              ),
-                              lineStyle: charts.LineStyleSpec(
-                                  color:
-                                      charts.MaterialPalette.gray.shadeDefault),
-                            ),
-                          ),
-                          behaviors: [
-                            charts.ChartTitle(
-                              'Channel Rec Counts',
-                              behaviorPosition: charts.BehaviorPosition.top,
-                              titleOutsideJustification:
-                                  charts.OutsideJustification.startDrawArea,
-                              titleStyleSpec: charts.TextStyleSpec(
-                                  color: charts.Color.white),
-                            ),
-                          ],
                         ),
+                        // Configure the measure axis (now X-axis) to show the counts
+                        primaryMeasureAxis: charts.NumericAxisSpec(
+                          renderSpec: charts.GridlineRendererSpec(
+                            labelStyle: charts.TextStyleSpec(
+                                fontSize: 11,
+                                color:
+                                    charts.MaterialPalette.gray.shadeDefault),
+                            lineStyle: charts.LineStyleSpec(
+                                color:
+                                    charts.MaterialPalette.gray.shadeDefault),
+                          ),
+                        ),
+                        behaviors: [
+                          charts.ChartTitle(
+                            'Channel Rec Counts',
+                            behaviorPosition: charts.BehaviorPosition.top,
+                            titleOutsideJustification:
+                                charts.OutsideJustification.startDrawArea,
+                            titleStyleSpec:
+                                charts.TextStyleSpec(color: charts.Color.white),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -385,7 +385,7 @@ class _TrendsViewState extends State<TrendsView> {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Container(
-                      height: 300.0,
+                      height: 400.0,
                       child: charts.BarChart(
                         _createTopicSeries(_topicsItemCount),
                         animate: true,
