@@ -107,14 +107,17 @@ class _TrendsViewState extends State<TrendsView> {
   }
 
   List<charts.Series<_ChannelRecFrequencyData, String>>
-      _createChannelRecFrequencySeries() {
-    final data = _channelRecFrequency.entries
+      _createChannelRecFrequencySeries(int itemCount) {
+    var data = _channelRecFrequency.entries
         .where((entry) => entry.key != 'Unknown') // Ignore 'Unknown' channel
         .map<_ChannelRecFrequencyData>((entry) {
       return _ChannelRecFrequencyData(entry.key, entry.value);
     }).toList();
 
     data.sort((a, b) => b.frequency.compareTo(a.frequency));
+
+    // Limit the number of data items
+    data = data.take(itemCount).toList();
 
     return [
       charts.Series<_ChannelRecFrequencyData, String>(
@@ -129,12 +132,25 @@ class _TrendsViewState extends State<TrendsView> {
     ];
   }
 
-  List<charts.Series<_TopicData, String>> _createTopicSeries() {
-    final data = _cumulativeTopicData.entries.map<_TopicData>((entry) {
+  final List<String> ignoreTopics = [
+    'Live',
+    'Gaming',
+    'Mixes',
+    'Podcasts',
+    'Music'
+  ];
+
+  List<charts.Series<_TopicData, String>> _createTopicSeries(int itemCount) {
+    var data = _cumulativeTopicData.entries
+        .where((entry) => !ignoreTopics.contains(entry.key))
+        .map<_TopicData>((entry) {
       return _TopicData(entry.key, entry.value);
     }).toList();
 
     data.sort((a, b) => b.count.compareTo(a.count));
+
+    // Limit the number of data items
+    data = data.take(itemCount).toList();
 
     return [
       charts.Series<_TopicData, String>(
@@ -186,6 +202,8 @@ class _TrendsViewState extends State<TrendsView> {
   }
 
   DateTime? selectedTimestamp;
+  int _channelRecsItemCount = 10;
+  int _topicsItemCount = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +221,7 @@ class _TrendsViewState extends State<TrendsView> {
           } else {
             final data = snapshot.data!;
             final channelRecFrequencySeries =
-                _createChannelRecFrequencySeries();
+                _createChannelRecFrequencySeries(_channelRecsItemCount);
 
             // Create a list of timestamps
             final timestamps = data
@@ -264,6 +282,33 @@ class _TrendsViewState extends State<TrendsView> {
                   ),
 
                   // Time Series Analysis Section
+
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: <Widget>[
+                        Text('Show top'),
+                        SizedBox(width: 8), // Add some spacing
+                        DropdownButton<int>(
+                          value: _channelRecsItemCount,
+                          onChanged: (int? newValue) {
+                            setState(() {
+                              _channelRecsItemCount = newValue!;
+                            });
+                          },
+                          items: [10, 25, 50]
+                              .map<DropdownMenuItem<int>>((int value) {
+                            return DropdownMenuItem<int>(
+                              value: value,
+                              child: Text(value.toString()),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: SingleChildScrollView(
@@ -310,12 +355,39 @@ class _TrendsViewState extends State<TrendsView> {
                   ),
 
                   // Topics Analysis Section
+
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: <Widget>[
+                        Text('Show top'),
+                        SizedBox(width: 8), // Add some spacing
+                        DropdownButton<int>(
+                          value: _topicsItemCount,
+                          onChanged: (int? newValue) {
+                            setState(() {
+                              _topicsItemCount = newValue!;
+                            });
+                          },
+                          items: [10, 25, 50]
+                              .map<DropdownMenuItem<int>>((int value) {
+                            return DropdownMenuItem<int>(
+                              value: value,
+                              child: Text(value.toString()),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Container(
                       height: 300.0,
                       child: charts.BarChart(
-                        _createTopicSeries(),
+                        _createTopicSeries(_topicsItemCount),
                         animate: true,
                         vertical:
                             false, // Set to false for horizontal bar chart
