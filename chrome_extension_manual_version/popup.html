@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>YouBuddies</title>
+    <style>
+      body {
+        background-color: #E6F7FF;
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      label, input, button {
+        display: block;
+        margin-bottom: 10px;
+      }
+      input {
+        padding: 10px;
+        border: 1px solid #AEDFF7;
+        border-radius: 5px;
+      }
+      button {
+        background-color: #AEDFF7;
+        color: #fff;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #85C7E5;
+      }
+      .button-container {
+        display: flex;
+        column-gap: 20px;
+      }
+      iframe {
+        border: none;
+        padding: 0px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>YouBuddies! rec collector</h2>
+    <label for="username">Username:</label>
+    <input type="text" id="username">
+      <div class="button-container">
+        <button id="collect">Collect Recommendations</button>
+      </div>
+    <h4 id="status">Status: ready. Reload youtube.com and click the button</h4>
+    <p id="invitation">
+      Once you've uploaded your recommendations, visit 
+      <a href="https://youbuddy-96438.web.app/" target="_blank">YouBuddies</a> 
+       to see you buddies recommendations.
+    </p>
+    <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-compat.js"></script>
+    <iframe id="bridge" src="bridge.html" sandbox="allow-scripts allow-same-origin"></iframe>
+    <script src="popup.js"></script>
+  </body>
+</html>
