@@ -15,6 +15,8 @@ dependencies:
   url_launcher: ^6.2.1
   charts_flutter: ^0.12.0
   firebase_auth: ^4.12.1
+  csv: ^5.1.1
+  file_saver: ^0.2.11
 
 flutter:
   uses-material-design: true

@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:csv/csv.dart';
+import 'dart:typed_data';
+import 'package:file_saver/file_saver.dart';
 
 class TrendsView extends StatefulWidget {
   final String clientId;
@@ -104,6 +107,63 @@ class _TrendsViewState extends State<TrendsView> {
       _timeOfDayData[date]?[channel] =
           (_timeOfDayData[date]?[channel] ?? 0) + 1;
     }
+  }
+
+  // Methods for CSV download
+
+  String generateRecommendationsCSV(
+      List<Map<String, dynamic>> recommendations) {
+    List<List<dynamic>> rows = [
+      ['Timestamp', 'Title', 'Channel', 'Link'], // CSV header
+    ];
+
+    for (var rec in recommendations) {
+      List<dynamic> row = [
+        rec['timestamp'].toIso8601String(),
+        rec['title'],
+        rec['channel'],
+        rec['link'],
+      ];
+      rows.add(row);
+    }
+
+    return const ListToCsvConverter().convert(rows);
+  }
+
+  String generateTagsCSV(List<Map<String, dynamic>> recommendations) {
+    List<List<dynamic>> rows = [
+      ['Timestamp', 'Tags'], // CSV header
+    ];
+
+    for (var rec in recommendations) {
+      // Filter out ignored topics from the topics list
+      List<String> topics = List<String>.from(rec['topics'] ?? []);
+      List<String> filteredTopics =
+          topics.where((topic) => !ignoreTopics.contains(topic)).toList();
+      String filteredTopicsString = filteredTopics.join(', ');
+
+      List<dynamic> row = [
+        rec['timestamp'].toIso8601String(),
+        filteredTopicsString,
+      ];
+      rows.add(row);
+    }
+
+    return const ListToCsvConverter().convert(rows);
+  }
+
+  Future<void> downloadFile(String csvContent, String baseFileName) async {
+    String formattedDateTime = DateFormat('MM_dd_yy').format(DateTime.now());
+
+    // Construct the file name with the user's name and the current date-time
+    String fileName = '${baseFileName}_$formattedDateTime.csv';
+
+    Uint8List bytes = Uint8List.fromList(csvContent.codeUnits);
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: bytes,
+      mimeType: MimeType.csv,
+    );
   }
 
   List<charts.Series<_ChannelRecFrequencyData, String>>
@@ -234,12 +294,32 @@ class _TrendsViewState extends State<TrendsView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Historical recs browser
+                  // Historical recs browser AND CSV download buttons
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Browse your recs',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Browse your recs',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        // Download Rec Data Button
+                        ElevatedButton(
+                          onPressed: () async {
+                            final recommendations =
+                                await fetchCurrentUserRecommendations();
+                            final recommendationsCSV =
+                                generateRecommendationsCSV(recommendations);
+                            final tagsCSV = generateTagsCSV(recommendations);
+
+                            await downloadFile(
+                                recommendationsCSV, 'recommendations');
+                            await downloadFile(tagsCSV, 'tags');
+                          },
+                          child: Text('Download Rec Data'),
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
