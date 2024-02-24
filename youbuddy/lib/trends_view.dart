@@ -135,18 +135,23 @@ class _TrendsViewState extends State<TrendsView> {
       ['Timestamp', 'Tags'], // CSV header
     ];
 
+    List<DateTime> dates = [];
     for (var rec in recommendations) {
-      // Filter out ignored topics from the topics list
-      List<String> topics = List<String>.from(rec['topics'] ?? []);
-      List<String> filteredTopics =
-          topics.where((topic) => !ignoreTopics.contains(topic)).toList();
-      String filteredTopicsString = filteredTopics.join(', ');
+      if (!dates.contains(rec['timestamp'])) {
+        dates.add(rec['timestamp']); // avoid duplicates
 
-      List<dynamic> row = [
-        rec['timestamp'].toIso8601String(),
-        filteredTopicsString,
-      ];
-      rows.add(row);
+        // Filter out ignored topics from the topics list
+        List<String> topics = List<String>.from(rec['topics'] ?? []);
+        List<String> filteredTopics =
+            topics.where((topic) => !ignoreTopics.contains(topic)).toList();
+        String filteredTopicsString = filteredTopics.join(', ');
+
+        List<dynamic> row = [
+          rec['timestamp'].toIso8601String(),
+          filteredTopicsString,
+        ];
+        rows.add(row);
+      }
     }
 
     return const ListToCsvConverter().convert(rows);
