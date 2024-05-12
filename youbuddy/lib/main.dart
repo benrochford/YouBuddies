@@ -1,11 +1,18 @@
+import 'dart:async';
+import 'dart:html';
+import 'dart:js' as js;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:youbuddy/query_route_generator.dart';
 import 'firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'firebase_utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:oauth2/oauth2.dart' as oauth2;
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'friend_management_view.dart';
+import 'oauth2_handler.dart';
 import 'recommendation_view.dart';
 import 'trends_view.dart';
 
@@ -18,6 +25,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  usePathUrlStrategy();
   runApp(MyApp());
 }
 
@@ -62,7 +70,13 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       theme: ThemeData.dark(),
       navigatorKey: navigatorKey,
-      home: InitializationWidget(),
+      routes: {
+        '/': (context) => InitializationWidget(),
+        '/__/custom/auth/handler': (context) => AuthHandlerWidget()
+      },
+      initialRoute: '/',
+      onGenerateRoute: QueryRouteGenerator.generateRoute,
+      // home: InitializationWidget(),
     );
   }
 }
@@ -98,28 +112,73 @@ class _InitializationWidgetState extends State<InitializationWidget> {
     friendId = profile?['friendId'];
   }
 
-  Future<UserCredential> _loginWithGoogle() async {
-    var provider = GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/youtube');
-    var credential = await FirebaseAuth.instance.signInWithPopup(provider);
+  Future<UserCredential> _loginWithGoogle({firstTime=false}) async {
+    final authEndpoint = Uri.parse('https://accounts.google.com/o/oauth2/v2/auth').replace(
+      queryParameters: {
+        'prompt': firstTime ? 'consent' : 'none',
+        'response_type': 'code',
+        'access_type': 'offline'
+      }
+    );
+    final tokenEndpoint = Uri.parse('https://oauth2.googleapis.com/token');
 
-    if (credential.additionalUserInfo!.isNewUser) {
-      Map<String, dynamic> profile = {};
-      profile['name'] = credential.user!.displayName;
-      profile['friendId'] = '${UniqueKey().hashCode}';
+    const clientId = '963863199423-gq6l1ur7gtgg9li2o124j5hrn96th2c4.apps.googleusercontent.com';
+    const clientSecret = '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';
 
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(credential.user!.uid)
-          .set(profile);
+    final redirectUrl = Uri.parse('${window.location.origin}/__/custom/auth/handler');
 
-      FirebaseFirestore.instance
-          .collection('tokens')
-          .doc(credential.user!.uid)
-          .set({'refreshToken': credential.user!.refreshToken});
-    }
+    final grant = oauth2.AuthorizationCodeGrant(
+      clientId, authEndpoint, tokenEndpoint, secret: clientSecret
+    );
 
-    return credential;
+    // openid scope allows for firebase authentication with same access token
+    var authUrl = grant.getAuthorizationUrl(redirectUrl, scopes: ["https://www.googleapis.com/auth/youtube", "openid"]);
+    js.context.callMethod('open', [authUrl.toString(), '', 'popup,height=600,width=500']);
+
+    final messageReceived = Completer<oauth2.Client>();
+    window.addEventListener('message', (event) async {
+      final messageEvent = event as MessageEvent;
+      if (messageEvent.origin == window.location.origin) {
+        final Map<String, String> params = messageEvent.data.map<String, String>((k, v) => MapEntry(k.toString(), v.toString()));
+        final client = await grant.handleAuthorizationResponse(params);
+        messageReceived.complete(client);
+      }
+    });
+
+    return messageReceived.future.then((client) async {
+      final accessToken = client.credentials.accessToken;
+      final idToken = client.credentials.idToken;
+
+      var credential = await FirebaseAuth.instance.signInWithCredential(
+          GoogleAuthProvider.credential(
+              idToken: idToken, accessToken: accessToken));
+
+      // setup user profile IDs
+      if (credential.additionalUserInfo!.isNewUser) {
+        if (!firstTime) {
+          showDialog(context: context, builder: (context) => AlertDialog(content: Text('Oops! Account not found. Try signing up!'),));
+        }
+
+        Map<String, dynamic> profile = {};
+        profile['name'] = credential.user!.displayName;
+        profile['friendId'] = '${UniqueKey().hashCode}';
+
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(credential.user!.uid)
+            .set(profile);
+      }
+
+      // update refresh token if available
+      if (client.credentials.refreshToken != null) {
+        FirebaseFirestore.instance
+            .collection('tokens')
+            .doc(credential.user!.uid)
+            .set({'refreshToken': client.credentials.refreshToken});
+      }
+
+      return credential;
+    });
   }
 
   void _logout() async {
@@ -137,14 +196,31 @@ class _InitializationWidgetState extends State<InitializationWidget> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Login'),
-          content: ElevatedButton(
-              onPressed: () async {
-                var credential = await _loginWithGoogle();
-                if (credential.user != null) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: Text('Sign in with Google')),
+          content: Container(
+            height: 100,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton(
+                    onPressed: () async {
+                      var credential = await _loginWithGoogle(firstTime: true);
+                      if (credential.user != null) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text('Sign up with Google')),
+                ElevatedButton(
+                    onPressed: () async {
+                      var credential = await _loginWithGoogle();
+                      if (credential.user != null) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text('Sign in with Google')),
+              ],
+            ),
+          ),
         );
       },
     );
