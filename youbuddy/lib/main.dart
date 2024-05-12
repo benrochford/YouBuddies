@@ -115,7 +115,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
   Future<UserCredential> _loginWithGoogle({firstTime=false}) async {
     final authEndpoint = Uri.parse('https://accounts.google.com/o/oauth2/v2/auth').replace(
       queryParameters: {
-        'prompt': firstTime ? 'consent' : 'none',
+        'prompt': firstTime ? 'consent' : 'select_account',
         'response_type': 'code',
         'access_type': 'offline'
       }
@@ -157,16 +157,16 @@ class _InitializationWidgetState extends State<InitializationWidget> {
       if (credential.additionalUserInfo!.isNewUser) {
         if (!firstTime) {
           showDialog(context: context, builder: (context) => AlertDialog(content: Text('Oops! Account not found. Try signing up!'),));
+        } else {
+          Map<String, dynamic> profile = {};
+          profile['name'] = credential.user!.displayName;
+          profile['friendId'] = '${UniqueKey().hashCode}';
+
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(credential.user!.uid)
+              .set(profile);
         }
-
-        Map<String, dynamic> profile = {};
-        profile['name'] = credential.user!.displayName;
-        profile['friendId'] = '${UniqueKey().hashCode}';
-
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(credential.user!.uid)
-            .set(profile);
       }
 
       // update refresh token if available
