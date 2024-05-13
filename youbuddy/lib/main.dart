@@ -112,10 +112,10 @@ class _InitializationWidgetState extends State<InitializationWidget> {
     friendId = profile?['friendId'];
   }
 
-  Future<UserCredential> _loginWithGoogle({firstTime=false}) async {
+  Future<UserCredential> _loginWithGoogle() async {
     final authEndpoint = Uri.parse('https://accounts.google.com/o/oauth2/v2/auth').replace(
       queryParameters: {
-        'prompt': firstTime ? 'consent' : 'select_account',
+        'prompt': 'select_account',
         'response_type': 'code',
         'access_type': 'offline'
       }
@@ -132,7 +132,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
     );
 
     // openid scope allows for firebase authentication with same access token
-    var authUrl = grant.getAuthorizationUrl(redirectUrl, scopes: ["https://www.googleapis.com/auth/youtube", "openid"]);
+    var authUrl = grant.getAuthorizationUrl(redirectUrl, scopes: ["https://www.googleapis.com/auth/youtube", "openid", "email", "profile"]);
     js.context.callMethod('open', [authUrl.toString(), '', 'popup,height=600,width=500']);
 
     final messageReceived = Completer<oauth2.Client>();
@@ -140,8 +140,9 @@ class _InitializationWidgetState extends State<InitializationWidget> {
       final messageEvent = event as MessageEvent;
       if (messageEvent.origin == window.location.origin) {
         final Map<String, String> params = messageEvent.data.map<String, String>((k, v) => MapEntry(k.toString(), v.toString()));
-        final client = await grant.handleAuthorizationResponse(params);
-        messageReceived.complete(client);
+        grant.handleAuthorizationResponse(params)
+            .then((client) => messageReceived.complete(client))
+            .onError((error, stackTrace) => print('$error $stackTrace'));
       }
     });
 
@@ -154,19 +155,15 @@ class _InitializationWidgetState extends State<InitializationWidget> {
               idToken: idToken, accessToken: accessToken));
 
       // setup user profile IDs
-      if (credential.additionalUserInfo!.isNewUser) {
-        if (!firstTime) {
-          showDialog(context: context, builder: (context) => AlertDialog(content: Text('Oops! Account not found. Try signing up!'),));
-        } else {
+      if (credential.user != null && credential.additionalUserInfo!.isNewUser) {
           Map<String, dynamic> profile = {};
-          profile['name'] = credential.user!.displayName;
+          profile['name'] = credential.user?.displayName ?? 'Air Bud';
           profile['friendId'] = '${UniqueKey().hashCode}';
 
           FirebaseFirestore.instance
               .collection('users')
               .doc(credential.user!.uid)
               .set(profile);
-        }
       }
 
       // update refresh token if available
@@ -202,14 +199,6 @@ class _InitializationWidgetState extends State<InitializationWidget> {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton(
-                    onPressed: () async {
-                      var credential = await _loginWithGoogle(firstTime: true);
-                      if (credential.user != null) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: Text('Sign up with Google')),
                 ElevatedButton(
                     onPressed: () async {
                       var credential = await _loginWithGoogle();
