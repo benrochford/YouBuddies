@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-Future<Map<String, dynamic>?> getUserProfile(String clientId) async {
+Future<Map<String, dynamic>> getUserProfile(String clientId) async {
   var snapshot =
       await FirebaseFirestore.instance.collection('users').doc(clientId).get();
 
@@ -8,7 +8,10 @@ Future<Map<String, dynamic>?> getUserProfile(String clientId) async {
     final profile = snapshot.data()!;
     return profile;
   }
-  return null;
+  return {
+    'name': 'Air Bud',
+    'friendId': 'Not found'
+  };
 }
 
 Future<String?> getUserFromFriendID(String friendId) async {

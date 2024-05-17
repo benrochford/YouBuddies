@@ -25,10 +25,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  FirebaseFunctions.instance.useFunctionsEmulator('localhost', 5001);
-  FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
-  FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
       
   usePathUrlStrategy();
   runApp(MyApp());
@@ -113,8 +109,8 @@ class _InitializationWidgetState extends State<InitializationWidget> {
     }
 
     var profile = await getUserProfile(FirebaseAuth.instance.currentUser!.uid);
-    name = profile?['name'];
-    friendId = profile?['friendId'];
+    name = profile['name'];
+    friendId = profile['friendId'];
   }
 
   Future<UserCredential> _loginWithGoogle() async {
@@ -143,7 +139,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
     final messageReceived = Completer<oauth2.Client>();
     window.addEventListener('message', (event) async {
       final messageEvent = event as MessageEvent;
-      if (messageEvent.origin == window.location.origin) {
+      if (messageEvent.origin == window.location.origin && !messageReceived.isCompleted) {
         final Map<String, String> params = messageEvent.data.map<String, String>((k, v) => MapEntry(k.toString(), v.toString()));
         grant.handleAuthorizationResponse(params)
             .then((client) => messageReceived.complete(client))
@@ -160,23 +156,25 @@ class _InitializationWidgetState extends State<InitializationWidget> {
               idToken: idToken, accessToken: accessToken));
 
       // setup user profile IDs
-      if (credential.user != null && credential.additionalUserInfo!.isNewUser) {
+      if (credential.user != null) {
+        if (credential.additionalUserInfo?.isNewUser ?? false) {
           Map<String, dynamic> profile = {};
           profile['name'] = credential.user?.displayName ?? 'Air Bud';
-          profile['friendId'] = '${UniqueKey().hashCode}';
+          profile['friendId'] = UniqueKey().hashCode.toString();
 
           FirebaseFirestore.instance
               .collection('users')
               .doc(credential.user!.uid)
               .set(profile);
-      }
+        }
 
-      // update refresh token if available
-      if (client.credentials.refreshToken != null) {
-        FirebaseFirestore.instance
-            .collection('tokens')
-            .doc(credential.user!.uid)
-            .set({'refreshToken': client.credentials.refreshToken});
+        // update refresh token if available
+        if (client.credentials.refreshToken != null) {
+          FirebaseFirestore.instance
+              .collection('tokens')
+              .doc(credential.user!.uid)
+              .set({'refreshToken': client.credentials.refreshToken});
+        }
       }
 
       return credential;
