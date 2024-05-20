@@ -200,6 +200,7 @@ async function collectRecs(userId: string, accessToken: string): Promise<{recomm
 //   }
 // });
 
+console.log(new Date().toUTCString());
 getAllAccessTokens().then((accessTokens) => {
   collectRecsAllUsers(accessTokens).then((data) => {
     for (const userId in data) {
@@ -211,6 +212,6 @@ getAllAccessTokens().then((accessTokens) => {
           console.error(`Error adding document ${userId}: `, error);
         });
     }
-  });
+  }).then(() => {console.log();});
 });
 
