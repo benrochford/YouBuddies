@@ -109,7 +109,7 @@ const excluded_chips = ["N/A", "All", "Recently uploaded", "Watched", "New to yo
 async function collectRecsAllUsers(accessTokens: Record<string, string>) {
   const data: Record<string, any> = {};
   for (const [userId, accessToken] of Object.entries(accessTokens)) {
-    data[userId] = collectRecs(userId, accessToken);
+    data[userId] = await collectRecs(userId, accessToken);
   }
 
   return data;
