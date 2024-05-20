@@ -11,19 +11,22 @@
 // https://firebase.google.com/docs/functions/typescript
 
 // The Firebase Admin SDK to access Firestore.
+import serviceAccount from "../firebase-adminsdk-key.json";
+import {credential} from "firebase-admin";
 import {AppOptions, initializeApp} from "firebase-admin/app";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
 
-// The Cloud Functions for Firebase SDK to create Cloud Functions and triggers.
-import {logger} from "firebase-functions";
-
-import {onSchedule} from "firebase-functions/v2/scheduler";
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+const cert = {
+  projectId: serviceAccount.project_id,
+  clientEmail: serviceAccount.client_email,
+  privateKey: serviceAccount.private_key
+};
 
 // Initialize Firebase
 const firebaseConfig: AppOptions = {
   projectId: "youbuddy-96438",
   databaseURL: "https://youbuddy-96438-default-rtdb.firebaseio.com",
+  credential: credential.cert(cert)
 };
 
 const app = initializeApp(firebaseConfig);
@@ -64,7 +67,7 @@ async function getAccessToken(userId: string, refreshToken?: string): Promise<st
     const snapshot = await db.collection("tokens").doc(userId).get();
     const doc = snapshot.data();
     if (doc === undefined) {
-      logger.error(`Error retrieving token from db for ${userId}`);
+      console.error(`Error retrieving token from db for ${userId}`);
       return null;
     }
 
@@ -78,10 +81,10 @@ async function getAccessToken(userId: string, refreshToken?: string): Promise<st
 
   const data = await response.json();
   if (response.ok) {
-    logger.log("Access token retrieved", JSON.stringify(data));
+    console.log(`Access token retrieved for ${userId}`);
     return data.access_token;
   } else {
-    logger.error(`Error retrieving access token: ${JSON.stringify(data)}`);
+    console.error(`Error retrieving access token for ${userId}: ${JSON.stringify(data)}`);
     return null;
   }
 }
@@ -109,7 +112,7 @@ const excluded_chips = ["N/A", "All", "Recently uploaded", "Watched", "New to yo
 async function collectRecsAllUsers(accessTokens: Record<string, string>) {
   const data: Record<string, any> = {};
   for (const [userId, accessToken] of Object.entries(accessTokens)) {
-    data[userId] = collectRecs(userId, accessToken);
+    data[userId] = await collectRecs(userId, accessToken);
   }
 
   return data;
@@ -139,7 +142,7 @@ async function collectRecs(userId: string, accessToken: string): Promise<{recomm
     },
     body: JSON.stringify(browseRequest),
   });
-
+ 
   if (response.ok) {
     const body = await response.json();
     const richGridRenderer = body?.contents?.twoColumnBrowseResultsRenderer?.tabs[0]?.tabRenderer?.content?.richGridRenderer;
@@ -175,41 +178,39 @@ async function collectRecs(userId: string, accessToken: string): Promise<{recomm
       }
     }
 
+
     return {recommendations, filterChipTexts};
   } else {
-    logger.error(`Error retrieving recommendations from innertube browse endpoint: ${await response.text()}`);
+    console.error(`Error retrieving recommendations from innertube browse endpoint: ${await response.text()}`);
     return {recommendations, filterChipTexts};
   }
 }
 
-exports.collectRecsNewUser = onDocumentCreated("tokens/{userId}", async (event) => {
-  logger.log(event.data?.id);
-  logger.log(event.data?.data());
-  const userId = event.data?.id || "";
-  const refreshToken = event.data?.get("refreshToken") || "";
-  const accessToken = await getAccessToken(userId, refreshToken);
-  if (accessToken) {
-    const data = await collectRecs(userId, accessToken);
-    storeData(userId, data.recommendations, data.filterChipTexts).then(() => {
-      logger.log(`Document ${userId} successfully written!`);
-    })
-      .catch((error) => {
-        logger.error(`Error adding document ${userId}: `, error);
-      });
-  }
-});
+// async function collectRecsUser(userId: string) {
+//   console.log(userId);
+//   const accessToken = await getAccessToken(userId);
+//   if (accessToken) {
+//     const data = await collectRecs(userId, accessToken);
+//     storeData(userId, data.recommendations, data.filterChipTexts).then(() => {
+//       console.log(`Document ${userId} successfully written!`);
+//     })
+//       .catch((error) => {
+//         console.error(`Error adding document ${userId}: `, error);
+//       });
+//   }
+// });
 
-exports.collectRecsScheduled = onSchedule("every day 00:00", async (event) => {
-  const accessTokens = await getAllAccessTokens();
-  const data = await collectRecsAllUsers(accessTokens);
-  for (const userId in data) {
-    const userData = data[userId];
-    storeData(userId, userData.recommendations, userData.filterChipTexts).then(() => {
-      logger.log(`Document ${userId} successfully written!`);
-    })
-      .catch((error) => {
-        logger.error(`Error adding document ${userId}: `, error);
-      });
-  }
+getAllAccessTokens().then((accessTokens) => {
+  collectRecsAllUsers(accessTokens).then((data) => {
+    for (const userId in data) {
+      const userData = data[userId];
+      storeData(userId, userData.recommendations, userData.filterChipTexts).then(() => {
+         console.log(`Document ${userId} successfully written!`);
+      })
+        .catch((error) => {
+          console.error(`Error adding document ${userId}: `, error);
+        });
+    }
+  });
 });
 
