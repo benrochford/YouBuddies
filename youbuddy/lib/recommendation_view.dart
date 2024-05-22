@@ -1,6 +1,10 @@
+import 'dart:async';
+
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:youbuddy/collect_recs_button.dart';
 import 'dart:math';
 
 import 'package:youbuddy/firebase_utils.dart';
@@ -23,6 +27,7 @@ class _RecommendationViewState extends State<RecommendationView>
 
   // animation stuff for funny empty list icon
   late AnimationController _controller;
+  late Future<List<Map<String, dynamic>>> fetchRecommendationsFuture;
 
   @override
   void initState() {
@@ -360,11 +365,13 @@ class _RecommendationViewState extends State<RecommendationView>
         }
 
         final friendsList = friendsSnapshot.data!;
+        fetchRecommendationsFuture = Future.wait([
+          fetchRecommendationsFromFriends(friendsList),
+          findCommonRecommendations(friendsList)
+        ]);
+
         return FutureBuilder<List<Map<String, dynamic>>>(
-            future: Future.wait([
-              fetchRecommendationsFromFriends(friendsList),
-              findCommonRecommendations(friendsList)
-            ]),
+            future: fetchRecommendationsFuture,
             builder: (context, recommendationsSnapshot) {
               if (!recommendationsSnapshot.hasData) {
                 return Center(child: CircularProgressIndicator());
@@ -378,7 +385,20 @@ class _RecommendationViewState extends State<RecommendationView>
               return Scaffold(
                 appBar: AppBar(
                   title: Text('Recommendations from friends'),
-                ),
+                  actions: [
+                    CollectRecsButton(
+                      clientId: widget.clientId,
+                      onSuccess: () => setState(() {
+                        fetchRecommendationsFuture =
+                            Future.wait([
+                              fetchRecommendationsFromFriends(
+                                  friendsList),
+                              findCommonRecommendations(
+                                  friendsList)
+                            ]);
+                      }),
+                    )
+                  ]),
                 body: ListView(
                   children: [
                     buildCommonRecommendationsWidget(commonRecsMap),
