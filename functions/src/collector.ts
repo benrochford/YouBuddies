@@ -192,7 +192,7 @@ export async function collectRecsUser(userId: string) {
    if (accessToken) {
      const data = await collectRecs(userId, accessToken);
      storeData(userId, data.recommendations, data.filterChipTexts)
-       .then(console.log(`Document ${userId} successfully written!\n`))
+       .then(() => console.log(`Document ${userId} successfully written!\n`))
        .catch(error => console.error(`Error adding document ${userId}: `, error, '\n'));
    }
 }
@@ -201,12 +201,12 @@ export async function collectAllRecs() {
   console.log(new Date().toUTCString());
   getAllAccessTokens().then(accessTokens => {
     collectRecsAllUsers(accessTokens).then(data => {
-      const promises: Promise[] = Object.entries(data).map(([userId, userData]) => 
+      const promises: Promise<void>[] = Object.entries(data).map(([userId, userData]) => 
         storeData(userId, userData.recommendations, userData.filterChipTexts)
-          .then(console.log(`Document ${userId} successfully written!`))
+          .then(() => console.log(`Document ${userId} successfully written!`))
           .catch(error => console.error(`Error adding document ${userId}: `, error)));
       
-      Promise.all(promises).then(console.log());
+      Promise.all(promises).then(() => console.log());
     });
   });
 }
