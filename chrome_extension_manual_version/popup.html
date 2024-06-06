@@ -32,11 +32,6 @@
         display: flex;
         column-gap: 20px;
       }
-      .login-button {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-      }
       iframe {
         border: none;
         padding: 0px;
@@ -44,21 +39,17 @@
     </style>
   </head>
   <body>
-  <div class="login-button">
-    <button id="login">Login</button>
-  </div>
     <h2>YouBuddies! rec collector</h2>
     <label for="username">Username:</label>
     <input type="text" id="username">
       <div class="button-container">
         <button id="collect">Collect Recommendations</button>
-        <button id="collectAll">Collect Recommendations for All Users</button>
       </div>
-    <h4 id="status">Status: ready. open / reload youtube.com and click the button</h4>
+    <h4 id="status">Status: ready. Reload youtube.com and click the button</h4>
     <p id="invitation">
       Once you've uploaded your recommendations, visit 
       <a href="https://youbuddy-96438.web.app/" target="_blank">YouBuddies</a> 
-      and access with the same username to see you buddies recommendations.
+       to see you buddies recommendations.
     </p>
     <script src="https://www.gstatic.com/firebasejs/9.14.0/firebase-compat.js"></script>
     <iframe id="bridge" src="bridge.html" sandbox="allow-scripts allow-same-origin"></iframe>

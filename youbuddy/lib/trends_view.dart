@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:csv/csv.dart';
+import 'dart:typed_data';
+import 'package:file_saver/file_saver.dart';
 
 class TrendsView extends StatefulWidget {
   final String clientId;
@@ -106,15 +109,80 @@ class _TrendsViewState extends State<TrendsView> {
     }
   }
 
+  // Methods for CSV download
+
+  String generateRecommendationsCSV(
+      List<Map<String, dynamic>> recommendations) {
+    List<List<dynamic>> rows = [
+      ['Timestamp', 'Title', 'Channel', 'Link'], // CSV header
+    ];
+
+    for (var rec in recommendations) {
+      List<dynamic> row = [
+        rec['timestamp'].toIso8601String(),
+        rec['title'],
+        rec['channel'],
+        rec['link'],
+      ];
+      rows.add(row);
+    }
+
+    return const ListToCsvConverter().convert(rows);
+  }
+
+  String generateTagsCSV(List<Map<String, dynamic>> recommendations) {
+    List<List<dynamic>> rows = [
+      ['Timestamp', 'Tags'], // CSV header
+    ];
+
+    List<DateTime> dates = [];
+    for (var rec in recommendations) {
+      if (!dates.contains(rec['timestamp'])) {
+        dates.add(rec['timestamp']); // avoid duplicates
+
+        // Filter out ignored topics from the topics list
+        List<String> topics = List<String>.from(rec['topics'] ?? []);
+        List<String> filteredTopics =
+            topics.where((topic) => !ignoreTopics.contains(topic)).toList();
+        String filteredTopicsString = filteredTopics.join(', ');
+
+        List<dynamic> row = [
+          rec['timestamp'].toIso8601String(),
+          filteredTopicsString,
+        ];
+        rows.add(row);
+      }
+    }
+
+    return const ListToCsvConverter().convert(rows);
+  }
+
+  Future<void> downloadFile(String csvContent, String baseFileName) async {
+    String formattedDateTime = DateFormat('MM_dd_yy').format(DateTime.now());
+
+    // Construct the file name with the user's name and the current date-time
+    String fileName = '${baseFileName}_$formattedDateTime.csv';
+
+    Uint8List bytes = Uint8List.fromList(csvContent.codeUnits);
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: bytes,
+      mimeType: MimeType.csv,
+    );
+  }
+
   List<charts.Series<_ChannelRecFrequencyData, String>>
-      _createChannelRecFrequencySeries() {
-    final data = _channelRecFrequency.entries
+      _createChannelRecFrequencySeries(int itemCount) {
+    var data = _channelRecFrequency.entries
         .where((entry) => entry.key != 'Unknown') // Ignore 'Unknown' channel
         .map<_ChannelRecFrequencyData>((entry) {
       return _ChannelRecFrequencyData(entry.key, entry.value);
     }).toList();
 
     data.sort((a, b) => b.frequency.compareTo(a.frequency));
+
+    // Limit the number of data items
+    data = data.take(itemCount).toList();
 
     return [
       charts.Series<_ChannelRecFrequencyData, String>(
@@ -129,12 +197,25 @@ class _TrendsViewState extends State<TrendsView> {
     ];
   }
 
-  List<charts.Series<_TopicData, String>> _createTopicSeries() {
-    final data = _cumulativeTopicData.entries.map<_TopicData>((entry) {
+  final List<String> ignoreTopics = [
+    'Live',
+    'Gaming',
+    'Mixes',
+    'Podcasts',
+    'Music'
+  ];
+
+  List<charts.Series<_TopicData, String>> _createTopicSeries(int itemCount) {
+    var data = _cumulativeTopicData.entries
+        .where((entry) => !ignoreTopics.contains(entry.key))
+        .map<_TopicData>((entry) {
       return _TopicData(entry.key, entry.value);
     }).toList();
 
     data.sort((a, b) => b.count.compareTo(a.count));
+
+    // Limit the number of data items
+    data = data.take(itemCount).toList();
 
     return [
       charts.Series<_TopicData, String>(
@@ -186,6 +267,8 @@ class _TrendsViewState extends State<TrendsView> {
   }
 
   DateTime? selectedTimestamp;
+  int _channelRecsItemCount = 10;
+  int _topicsItemCount = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +286,7 @@ class _TrendsViewState extends State<TrendsView> {
           } else {
             final data = snapshot.data!;
             final channelRecFrequencySeries =
-                _createChannelRecFrequencySeries();
+                _createChannelRecFrequencySeries(_channelRecsItemCount);
 
             // Create a list of timestamps
             final timestamps = data
@@ -216,12 +299,32 @@ class _TrendsViewState extends State<TrendsView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Historical recs browser
+                  // Historical recs browser AND CSV download buttons
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Browse your recs',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Browse your recs',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        // Download Rec Data Button
+                        ElevatedButton(
+                          onPressed: () async {
+                            final recommendations =
+                                await fetchCurrentUserRecommendations();
+                            final recommendationsCSV =
+                                generateRecommendationsCSV(recommendations);
+                            final tagsCSV = generateTagsCSV(recommendations);
+
+                            await downloadFile(
+                                recommendationsCSV, 'recommendations');
+                            await downloadFile(tagsCSV, 'tags');
+                          },
+                          child: Text('Download Rec Data'),
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
@@ -264,58 +367,112 @@ class _TrendsViewState extends State<TrendsView> {
                   ),
 
                   // Time Series Analysis Section
+
                   Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal, // Horizontal scrolling
-                      child: Container(
-                        width: 1000.0, // Adjust width to accommodate all bars
-                        height: 200.0,
-                        child: charts.BarChart(
-                          channelRecFrequencySeries,
-                          animate: true,
-                          barGroupingType: charts.BarGroupingType.grouped,
-                          barRendererDecorator: null,
-                          domainAxis: charts.OrdinalAxisSpec(
-                            renderSpec: charts.SmallTickRendererSpec(
-                              labelRotation: 45,
-                              labelStyle: charts.TextStyleSpec(
-                                  fontSize: 11, color: charts.Color.white),
-                            ),
-                          ),
-                          primaryMeasureAxis: charts.NumericAxisSpec(
-                            renderSpec: charts.GridlineRendererSpec(
-                              labelStyle: charts.TextStyleSpec(
-                                fontSize: 10,
-                                color: charts.MaterialPalette.gray.shadeDefault,
-                              ),
-                              lineStyle: charts.LineStyleSpec(
-                                  color:
-                                      charts.MaterialPalette.gray.shadeDefault),
-                            ),
-                          ),
-                          behaviors: [
-                            charts.ChartTitle(
-                              'Channel Rec Counts',
-                              behaviorPosition: charts.BehaviorPosition.top,
-                              titleOutsideJustification:
-                                  charts.OutsideJustification.startDrawArea,
-                              titleStyleSpec: charts.TextStyleSpec(
-                                  color: charts.Color.white),
-                            ),
-                          ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: <Widget>[
+                        Text('Show top'),
+                        SizedBox(width: 8),
+                        DropdownButton<int>(
+                          value: _channelRecsItemCount,
+                          onChanged: (int? newValue) {
+                            setState(() {
+                              _channelRecsItemCount = newValue!;
+                            });
+                          },
+                          items: [10, 25, 50]
+                              .map<DropdownMenuItem<int>>((int value) {
+                            return DropdownMenuItem<int>(
+                              value: value,
+                              child: Text(value.toString()),
+                            );
+                          }).toList(),
                         ),
+                      ],
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Container(
+                      height: 425.0,
+                      child: charts.BarChart(
+                        channelRecFrequencySeries,
+                        animate: true,
+                        vertical: false,
+                        barGroupingType: charts.BarGroupingType.grouped,
+                        // Configure the domain axis (now Y-axis) to show the labels
+                        domainAxis: charts.OrdinalAxisSpec(
+                          renderSpec: charts.SmallTickRendererSpec(
+                            labelStyle: charts.TextStyleSpec(
+                                fontSize: 10, color: charts.Color.white),
+                            lineStyle: charts.LineStyleSpec(
+                                color:
+                                    charts.MaterialPalette.gray.shadeDefault),
+                          ),
+                        ),
+                        // Configure the measure axis (now X-axis) to show the counts
+                        primaryMeasureAxis: charts.NumericAxisSpec(
+                          renderSpec: charts.GridlineRendererSpec(
+                            labelStyle: charts.TextStyleSpec(
+                                fontSize: 11,
+                                color:
+                                    charts.MaterialPalette.gray.shadeDefault),
+                            lineStyle: charts.LineStyleSpec(
+                                color:
+                                    charts.MaterialPalette.gray.shadeDefault),
+                          ),
+                        ),
+                        behaviors: [
+                          charts.ChartTitle(
+                            'Channel Rec Counts',
+                            behaviorPosition: charts.BehaviorPosition.top,
+                            titleOutsideJustification:
+                                charts.OutsideJustification.startDrawArea,
+                            titleStyleSpec:
+                                charts.TextStyleSpec(color: charts.Color.white),
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
                   // Topics Analysis Section
+
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: <Widget>[
+                        Text('Show top'),
+                        SizedBox(width: 8), // Add some spacing
+                        DropdownButton<int>(
+                          value: _topicsItemCount,
+                          onChanged: (int? newValue) {
+                            setState(() {
+                              _topicsItemCount = newValue!;
+                            });
+                          },
+                          items: [10, 25, 50]
+                              .map<DropdownMenuItem<int>>((int value) {
+                            return DropdownMenuItem<int>(
+                              value: value,
+                              child: Text(value.toString()),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Container(
-                      height: 300.0,
+                      height: 400.0,
                       child: charts.BarChart(
-                        _createTopicSeries(),
+                        _createTopicSeries(_topicsItemCount),
                         animate: true,
                         vertical:
                             false, // Set to false for horizontal bar chart

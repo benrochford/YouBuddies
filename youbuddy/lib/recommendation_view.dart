@@ -1,6 +1,4 @@
 import 'dart:async';
-
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -384,21 +382,18 @@ class _RecommendationViewState extends State<RecommendationView>
 
               return Scaffold(
                 appBar: AppBar(
-                  title: Text('Recommendations from friends'),
-                  actions: [
-                    CollectRecsButton(
-                      clientId: widget.clientId,
-                      onSuccess: () => setState(() {
-                        fetchRecommendationsFuture =
-                            Future.wait([
-                              fetchRecommendationsFromFriends(
-                                  friendsList),
-                              findCommonRecommendations(
-                                  friendsList)
-                            ]);
-                      }),
-                    )
-                  ]),
+                    title: Text('Recommendations from friends'),
+                    actions: [
+                      CollectRecsButton(
+                        clientId: widget.clientId,
+                        onSuccess: () => setState(() {
+                          fetchRecommendationsFuture = Future.wait([
+                            fetchRecommendationsFromFriends(friendsList),
+                            findCommonRecommendations(friendsList)
+                          ]);
+                        }),
+                      )
+                    ]),
                 body: ListView(
                   children: [
                     buildCommonRecommendationsWidget(commonRecsMap),
@@ -411,25 +406,25 @@ class _RecommendationViewState extends State<RecommendationView>
                         final recommendations = recommendationsMap[friendUID];
                         return ExpansionTile(
                           title: FutureBuilder<Map<String, dynamic>?>(
-                            future: getUserProfile(friendUID),
-                            builder: (context, snapshot) {
-                              var text = '';
-                              if (snapshot.connectionState == ConnectionState.done) {
-                                final profile = snapshot.data;
-                                if (snapshot.hasError || profile == null) {
-                                  text = '<Could not find friend name>';
-                                } else {
-                                  text = profile['name'];
+                              future: getUserProfile(friendUID),
+                              builder: (context, snapshot) {
+                                var text = '';
+                                if (snapshot.connectionState ==
+                                    ConnectionState.done) {
+                                  final profile = snapshot.data;
+                                  if (snapshot.hasError || profile == null) {
+                                    text = '<Could not find friend name>';
+                                  } else {
+                                    text = profile['name'];
+                                  }
                                 }
-                              }
-                              return Text(
+                                return Text(
                                   text,
                                   style: TextStyle(
-                                  fontSize:
-                               18, fontWeight: FontWeight.bold),
-                        );
-                            }
-                          ),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
+                                );
+                              }),
                           initiallyExpanded:
                               expansionStateMap[friendUID] ?? false,
                           onExpansionChanged: (bool isExpanded) {

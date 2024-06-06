@@ -17,6 +17,22 @@ class FriendManagementView extends StatefulWidget {
 class _FriendManagementViewState extends State<FriendManagementView> {
   final _friendIdController = TextEditingController();
 
+  Map<String, dynamic> friendProfiles = {};
+  // Fetch and update friend profiles
+  Future<void> fetchFriendProfiles(List friends) async {
+    Map<String, dynamic> profiles = {};
+    for (var friend in friends) {
+      final friendUID = friend['id'];
+      final profileData = await getUserProfile(friendUID);
+      profiles[friendUID] = profileData;
+    }
+    if (mounted) {
+      setState(() {
+        friendProfiles = profiles;
+      });
+    }
+  }
+
   Future<void> _addFriend({bool testing = false}) async {
     final friendId = _friendIdController.text;
     if (friendId.isNotEmpty) {
@@ -52,12 +68,12 @@ class _FriendManagementViewState extends State<FriendManagementView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Follow Friends'), actions: [
+      appBar: AppBar(title: Text('Follow Buddies'), actions: [
         Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: SelectableText.rich(
-              TextSpan(text: 'Your Friend ID: ', children: [
+              TextSpan(text: 'Your Buddy Tag: ', children: [
                 TextSpan(
                     text: widget.clientFriendId,
                     style: TextStyle(color: Colors.blue),
@@ -66,7 +82,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                         await Clipboard.setData(
                             ClipboardData(text: widget.clientFriendId));
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Friend ID copied to clipboard!')));
+                            content: Text('Buddy Tag copied to clipboard!')));
                       })
               ]),
             ),
@@ -80,7 +96,7 @@ class _FriendManagementViewState extends State<FriendManagementView> {
             child: TextField(
               controller: _friendIdController,
               decoration: InputDecoration(
-                labelText: 'Enter Friend ID to follow',
+                labelText: 'Enter a Buddy Tag to follow',
               ),
               onSubmitted: (_) => _addFriend(),
             ),
@@ -96,28 +112,18 @@ class _FriendManagementViewState extends State<FriendManagementView> {
                 if (!snapshot.hasData)
                   return Center(child: CircularProgressIndicator());
                 final friends = snapshot.data!.docs;
+
+                fetchFriendProfiles(friends);
+
                 return ListView.builder(
                   itemCount: friends.length,
                   itemBuilder: (context, index) {
                     final friendUID = friends[index]['id'];
-                    final fetchFriendProfile = getUserProfile(friendUID);
+                    final profile = friendProfiles[friendUID];
 
                     return ListTile(
-                      title: FutureBuilder<Map<String, dynamic>?>(
-                          future: fetchFriendProfile,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.done) {
-                              final profile = snapshot.data;
-                              if (snapshot.hasError || profile == null) {
-                                return Text('Error: ${snapshot.error}');
-                              }
-                              return Text(profile['name']);
-                            }
-                            return Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }),
+                      title: Text(
+                          profile != null ? profile['name'] : 'Loading...'),
                       trailing: IconButton(
                         icon: Icon(Icons.delete),
                         onPressed: () {

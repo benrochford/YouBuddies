@@ -66,108 +66,6 @@ function injectAndToggleIframe() {
   targetDiv.insertAdjacentElement('afterend', wrapperDiv);
 }
 
-/**
- * Signs user in and saves refresh token if new
- */
-async function loginWithGoogle() {
-  const oauth2Config = chrome.runtime.getManifest().oauth2;
-  const authUrl = new URL("/o/oauth2/v2/auth", "https://accounts.google.com");
-  authUrl.searchParams.set("redirect_uri", chrome.identity.getRedirectURL("oauth2"));
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("access_type", "offline");
-  authUrl.searchParams.set("scope", oauth2Config.scopes.join(" "));
-  authUrl.searchParams.set("client_id", oauth2Config.client_id);
-
-  const authResult = await chrome.identity.launchWebAuthFlow({url: authUrl.href, interactive: true});
-  const redirectUrl = new URL(authResult);
-
-  const authCode = redirectUrl.searchParams.get("code");
-  const tokenUrl = new URL("/token", "https://oauth2.googleapis.com");
-  tokenUrl.searchParams.set("code", authCode);
-  tokenUrl.searchParams.set("redirect_uri", chrome.identity.getRedirectURL("oauth2"));
-  tokenUrl.searchParams.set("client_id", oauth2Config.client_id);
-  tokenUrl.searchParams.set("client_secret", oauth2Config.client_secret);
-  tokenUrl.searchParams.set("grant_type", "authorization_code");
-
-  const response = await fetch(tokenUrl, {
-    method: "POST"
-  });
-  return await response.json();
-}
-
-bad = ['N/A', 'All', 'Recently uploaded', 'Watched', 'New to you'];
-
-async function collectAllUserData(oauthTokens) {
-  const youtubeUrl = "https://www.youtube.com";
-  const browseEndpoint = "/youtubei/v1/browse";
-  const browseUrl = new URL(browseEndpoint, youtubeUrl);
-  const browseRequest = {
-    "context": {
-      "client": {
-        "clientName": "WEB",
-        "clientVersion": "2.20231101.05.00"
-      }
-    },
-    "browseId": "FEwhat_to_watch",
-  }
-
-  const data = {}
-  for (const [userId, oauthToken] of Object.entries(oauthTokens)) {
-    const recommendations = [];
-    const addedRecs = new Set();
-    const filterChipTexts = [];
-    const response = await fetch(browseUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + oauthToken,
-      },
-      body: JSON.stringify(browseRequest)
-    });
-
-    if (response.ok) {
-      const body = await response.json();
-      const richGridRenderer = body?.contents?.twoColumnBrowseResultsRenderer?.tabs[0]?.tabRenderer?.content?.richGridRenderer;
-      const items = richGridRenderer?.contents || [];
-      const filterChips = richGridRenderer?.header?.feedFilterChipBarRenderer?.contents || [];
-      const youtubeWatchUrl = "https://www.youtube.com/watch?v=";
-
-      // get videos
-      for (const item of items) {
-        // ad items have adSlotRenderer and items to trigger next query have continuationItemRenderer
-        const video = item?.richItemRenderer?.content?.videoRenderer;
-
-        // ensure real video
-        if (video) {
-          const newRec = {
-            'title': video?.title?.runs[0]?.text || "<no title found>",
-            'link': youtubeWatchUrl + video?.videoId,
-            'channel': video?.ownerText?.runs[0]?.text || "<no channel found>"
-          };
-
-          if (!addedRecs.has(JSON.stringify(newRec))) {
-            recommendations.push(newRec);
-            addedRecs.add(JSON.stringify(newRec));
-          }
-        }
-      }
-      
-      // get filter chips
-      for (const chip of filterChips) {
-        const text = chip?.chipCloudChipRenderer?.text?.runs[0]?.text;
-        if (text && !bad.includes(text)) {
-          filterChipTexts.push(text);
-        }
-      }
-
-      data[userId] = { recommendations, filterChipTexts };
-    } else {
-      console.log(`Error retrieving recommendations from innertube browse endpoint: ${await response.text()}`);
-    }
-  }
-
-  return data;
-}
-
 function collectData() {
   const recommendations = [];
   const addedTitles = new Set();
@@ -198,6 +96,7 @@ function collectData() {
 
   tabElements.forEach((element) => {
     const topic = element.innerText || 'N/A';
+    bad = ['N/A', 'All', 'Recently uploaded', 'Watched', 'New to you']
     if (!bad.includes(topic)) {
       tabTexts.push(topic);
     }
@@ -240,10 +139,6 @@ chrome.webNavigation.onDOMContentLoaded.addListener(async ({ tabId, url }) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "collectData") {
     sendResponse(data);
-  } else if (request.action === "collectAllUserData") {
-    collectAllUserData(request.oauthTokens).then((data) => sendResponse(data));
-  } else if (request.action === "login") {
-    loginWithGoogle().then((token) => sendResponse(token));
   }
   return true; // Required for asynchronous response
 });

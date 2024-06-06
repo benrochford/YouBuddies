@@ -2,8 +2,12 @@
     "manifest_version": 3,
     "name": "YouBuddies",
     "version": "1.0",
-    "permissions": ["webNavigation", "scripting", "tabs", "activeTab", "storage"],
-    "host_permissions": ["https://www.youtube.com/*"],
+    "permissions": ["webNavigation", "scripting", "tabs", "activeTab", "storage", "identity", "webRequest", "declarativeNetRequest"],
+    "host_permissions": [
+        "https://www.youtube.com/*",
+        "https://*.googleapis.com/*",
+        "https://accounts.google.com/*"
+    ],
     "background": {
         "service_worker": "background.js"
     },
@@ -15,12 +19,27 @@
 		"pages": ["popup.html"]
 	},
 	"content_security_policy": {
-		"sandbox": "sandbox allow-scripts allow-popups; script-src 'self' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com"
+		"sandbox": "sandbox allow-scripts allow-popups; script-src 'self' https://www.gstatic.com/ https://*.firebaseio.com https://www.googleapis.com; object-src 'self'"
 	},
+    "oauth2": {
+        "client_id": "963863199423-gq6l1ur7gtgg9li2o124j5hrn96th2c4.apps.googleusercontent.com",
+        "client_secret": "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",
+        "scopes": [
+            "https://www.googleapis.com/auth/youtube",
+            "openid"
+        ]
+    },
     "icons": {
         "16": "icon16.png",
         "32": "icon32.png",
         "48": "icon48.png",
         "128": "icon128.png"
+    },
+    "declarative_net_request": {
+        "rule_resources": [{
+            "id": "change-origin",
+            "enabled": true,
+            "path": "change_origin_header.json"
+        }]
     }
 }
