@@ -21,20 +21,11 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for windows - '
@@ -61,5 +52,36 @@ class DefaultFirebaseOptions {
     databaseURL: 'https://youbuddy-96438-default-rtdb.firebaseio.com',
     storageBucket: 'youbuddy-96438.appspot.com',
     measurementId: 'G-0TFMJE65T9',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyB4WE_FR-9PdIt1e7ikQutn8h1bCg16Osc',
+    appId: '1:963863199423:android:83d92e5d616e0b7f3f900a',
+    messagingSenderId: '963863199423',
+    projectId: 'youbuddy-96438',
+    databaseURL: 'https://youbuddy-96438-default-rtdb.firebaseio.com',
+    storageBucket: 'youbuddy-96438.appspot.com',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyB3nSqAG2LNntFIUgecfeLATTS9vnQdXvc',
+    appId: '1:963863199423:ios:ccc8038b7f6f91053f900a',
+    messagingSenderId: '963863199423',
+    projectId: 'youbuddy-96438',
+    databaseURL: 'https://youbuddy-96438-default-rtdb.firebaseio.com',
+    storageBucket: 'youbuddy-96438.appspot.com',
+    iosClientId: '963863199423-73srcc07f47qlijdefe8u0328rshhif1.apps.googleusercontent.com',
+    iosBundleId: 'com.example.youbuddy',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyB3nSqAG2LNntFIUgecfeLATTS9vnQdXvc',
+    appId: '1:963863199423:ios:94a3478d034253843f900a',
+    messagingSenderId: '963863199423',
+    projectId: 'youbuddy-96438',
+    databaseURL: 'https://youbuddy-96438-default-rtdb.firebaseio.com',
+    storageBucket: 'youbuddy-96438.appspot.com',
+    iosClientId: '963863199423-4vde60veeks61mqa84sk77dl4ovjdat2.apps.googleusercontent.com',
+    iosBundleId: 'com.example.youbuddy.RunnerTests',
   );
 }

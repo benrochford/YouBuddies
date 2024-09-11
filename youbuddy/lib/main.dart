@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_web_auth/flutter_web_auth.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:oauth2/oauth2.dart' as oauth2;
 
@@ -19,8 +19,8 @@ import 'login_stub.dart'
   if (dart.library.html) 'login_web.dart'
   if (dart.library.io)   'login_stub.dart';
 import 'oauth2_handler_stub.dart'
-if (dart.library.html) 'oauth2_handler.dart'
-if (dart.library.io)   'oauth2_handler_stub.dart';
+  if (dart.library.html) 'oauth2_handler.dart'
+  if (dart.library.io)   'oauth2_handler_stub.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
@@ -127,25 +127,26 @@ class _InitializationWidgetState extends State<InitializationWidget> {
     );
     final tokenEndpoint = Uri.parse('https://oauth2.googleapis.com/token');
 
-    const clientId = '963863199423-gq6l1ur7gtgg9li2o124j5hrn96th2c4.apps.googleusercontent.com';
-    const clientSecret = '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';
-
-    // window.location.origin cant be used on mobile so put in method
-    final redirectUrl = Uri.parse('${getRedirectUrl()}/__/custom/auth/handler');
+    // window.location.origin cant be used on mobile so put in constant
+    final redirectUrl = Uri.parse(REDIRECT_URL);
 
     final grant = oauth2.AuthorizationCodeGrant(
-      clientId, authEndpoint, tokenEndpoint, secret: clientSecret
+      CLIENT_ID, authEndpoint, tokenEndpoint, secret: CLIENT_SECRET
     );
 
     // openid scope allows for firebase authentication with same access token
     var authUrl = grant.getAuthorizationUrl(redirectUrl, scopes: ["https://www.googleapis.com/auth/youtube", "openid", "email", "profile"]);
-    final result = await FlutterWebAuth.authenticate(url: authUrl.toString(), callbackUrlScheme: redirectUrl.host);
-
+    final result = await FlutterWebAuth2.authenticate(
+        url: authUrl.toString(),
+        callbackUrlScheme: redirectUrl.scheme,
+        options: FlutterWebAuth2Options(intentFlags: ephemeralIntentFlags)
+    );
     final params = Uri.parse(result).queryParameters;
     final client = await grant.handleAuthorizationResponse(params);
 
     final accessToken = client.credentials.accessToken;
     final idToken = client.credentials.idToken;
+    print(client.credentials.refreshToken);
 
     var credential = await FirebaseAuth.instance.signInWithCredential(
         GoogleAuthProvider.credential(

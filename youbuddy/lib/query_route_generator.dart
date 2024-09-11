@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'main.dart';
-import 'oauth2_handler.dart';
+import 'oauth2_handler_stub.dart'
+  if (dart.library.html) 'oauth2_handler.dart'
+  if (dart.library.io)   'oauth2_handler_stub.dart';
 
 class QueryRouteGenerator {
   static Route<dynamic> generateRoute(RouteSettings settings) {

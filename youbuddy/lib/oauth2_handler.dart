@@ -6,7 +6,7 @@ class AuthHandlerWidget extends StatelessWidget {
   AuthHandlerWidget({Key? key}) : super(key: key) {
     final baseWindow = window.opener;
     baseWindow?.postMessage({
-      'flutter-web-auth': window.location.href
+      'flutter-web-auth-2': window.location.href
     }, window.location.origin);
     window.close();
   }
