@@ -1,22 +1,26 @@
 import 'dart:async';
-import 'dart:html';
-import 'dart:js' as js;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:youbuddy/query_route_generator.dart';
-import 'firebase_options.dart';
 import 'package:flutter/material.dart';
-import 'firebase_utils.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:oauth2/oauth2.dart' as oauth2;
+import 'package:flutter_web_auth/flutter_web_auth.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:oauth2/oauth2.dart' as oauth2;
 
 import 'friend_management_view.dart';
-import 'oauth2_handler.dart';
 import 'recommendation_view.dart';
 import 'trends_view.dart';
+import 'firebase_utils.dart';
+import 'firebase_options.dart';
+import 'query_route_generator.dart';
 
+// conditional imports for mobile/web libraries
+import 'login_stub.dart'
+  if (dart.library.html) 'login_web.dart'
+  if (dart.library.io)   'login_stub.dart';
+import 'oauth2_handler_stub.dart'
+if (dart.library.html) 'oauth2_handler.dart'
+if (dart.library.io)   'oauth2_handler_stub.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
@@ -115,18 +119,19 @@ class _InitializationWidgetState extends State<InitializationWidget> {
 
   Future<UserCredential> _loginWithGoogle() async {
     final authEndpoint = Uri.parse('https://accounts.google.com/o/oauth2/v2/auth').replace(
-      queryParameters: {
-        'prompt': 'select_account',
-        'response_type': 'code',
-        'access_type': 'offline'
-      }
+        queryParameters: {
+          'prompt': 'select_account',
+          'response_type': 'code',
+          'access_type': 'offline'
+        }
     );
     final tokenEndpoint = Uri.parse('https://oauth2.googleapis.com/token');
 
     const clientId = '963863199423-gq6l1ur7gtgg9li2o124j5hrn96th2c4.apps.googleusercontent.com';
     const clientSecret = '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';
 
-    final redirectUrl = Uri.parse('${window.location.origin}/__/custom/auth/handler');
+    // window.location.origin cant be used on mobile so put in method
+    final redirectUrl = Uri.parse('${getRedirectUrl()}/__/custom/auth/handler');
 
     final grant = oauth2.AuthorizationCodeGrant(
       clientId, authEndpoint, tokenEndpoint, secret: clientSecret
@@ -134,51 +139,41 @@ class _InitializationWidgetState extends State<InitializationWidget> {
 
     // openid scope allows for firebase authentication with same access token
     var authUrl = grant.getAuthorizationUrl(redirectUrl, scopes: ["https://www.googleapis.com/auth/youtube", "openid", "email", "profile"]);
-    js.context.callMethod('open', [authUrl.toString(), '', 'popup,height=600,width=500']);
+    final result = await FlutterWebAuth.authenticate(url: authUrl.toString(), callbackUrlScheme: redirectUrl.host);
 
-    final messageReceived = Completer<oauth2.Client>();
-    window.addEventListener('message', (event) async {
-      final messageEvent = event as MessageEvent;
-      if (messageEvent.origin == window.location.origin && !messageReceived.isCompleted) {
-        final Map<String, String> params = messageEvent.data.map<String, String>((k, v) => MapEntry(k.toString(), v.toString()));
-        grant.handleAuthorizationResponse(params)
-            .then((client) => messageReceived.complete(client))
-            .onError((error, stackTrace) => print('$error $stackTrace'));
-      }
-    });
+    final params = Uri.parse(result).queryParameters;
+    final client = await grant.handleAuthorizationResponse(params);
 
-    return messageReceived.future.then((client) async {
-      final accessToken = client.credentials.accessToken;
-      final idToken = client.credentials.idToken;
+    final accessToken = client.credentials.accessToken;
+    final idToken = client.credentials.idToken;
 
-      var credential = await FirebaseAuth.instance.signInWithCredential(
-          GoogleAuthProvider.credential(
-              idToken: idToken, accessToken: accessToken));
+    var credential = await FirebaseAuth.instance.signInWithCredential(
+        GoogleAuthProvider.credential(
+            idToken: idToken, accessToken: accessToken));
 
-      // setup user profile IDs
-      if (credential.user != null) {
-        if (credential.additionalUserInfo?.isNewUser ?? false) {
-          Map<String, dynamic> profile = {};
-          profile['name'] = credential.user?.displayName ?? 'Air Bud';
-          profile['friendId'] = UniqueKey().hashCode.toString();
+    // setup user profile IDs
+    if (credential.user != null) {
+      if (credential.additionalUserInfo?.isNewUser ?? false) {
+        Map<String, dynamic> profile = {};
+        profile['name'] = credential.user?.displayName ?? 'Air Bud';
+        profile['friendId'] = UniqueKey().hashCode.toString();
 
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(credential.user!.uid)
-              .set(profile);
-        }
-
-        // update refresh token if available
-        if (client.credentials.refreshToken != null) {
-          FirebaseFirestore.instance
-              .collection('tokens')
-              .doc(credential.user!.uid)
-              .set({'refreshToken': client.credentials.refreshToken});
-        }
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(credential.user!.uid)
+            .set(profile);
       }
 
-      return credential;
-    });
+      // update refresh token if available
+      if (client.credentials.refreshToken != null) {
+        FirebaseFirestore.instance
+            .collection('tokens')
+            .doc(credential.user!.uid)
+            .set({'refreshToken': client.credentials.refreshToken});
+      }
+    }
+
+    return credential;
   }
 
   void _logout() async {
