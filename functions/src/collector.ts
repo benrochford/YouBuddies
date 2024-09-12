@@ -12,6 +12,7 @@
 
 // The Firebase Admin SDK to access Firestore.
 import serviceAccount from "../firebase-adminsdk-key.json";
+import googleOAuthConfigFile from "../google_oauth_keys.json";
 import {credential} from "firebase-admin";
 import {AppOptions, initializeApp} from "firebase-admin/app";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
@@ -33,10 +34,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Config from Google Cloud Project
-const googleOAuthConfig = {
-  clientSecret: "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",
-  clientId: "963863199423-gq6l1ur7gtgg9li2o124j5hrn96th2c4.apps.googleusercontent.com",
-};
+const googleOAuthConfig: Record<string, any> = googleOAuthConfigFile;
 
 /** Retrieve access tokens by exchanging refresh tokens in firebase
  * Google OAuth implementation can be seen at https://developers.google.com/identity/protocols/oauth2
@@ -49,18 +47,20 @@ async function getAllAccessTokens() {
 
   for (const doc of docs) {
     const userId = doc.id;
-    const refreshToken = doc.refreshToken;
-
-    accessTokens[userId] = await getAccessToken(userId, refreshToken) || "";
+    const data = doc.data();
+    const refreshToken = data.refreshToken;
+    const platform = data.platform;
+    
+    accessTokens[userId] = await getAccessToken(userId, refreshToken, platform) || "";
   }
 
   return accessTokens;
 }
 
-async function getAccessToken(userId: string, refreshToken?: string): Promise<string | null> {
+async function getAccessToken(userId: string, refreshToken?: string, platform: string): Promise<string | null> {
   const googleOAuthEndpoint = new URL("/token", "https://oauth2.googleapis.com");
-  googleOAuthEndpoint.searchParams.set("client_secret", googleOAuthConfig.clientSecret);
-  googleOAuthEndpoint.searchParams.set("client_id", googleOAuthConfig.clientId);
+  googleOAuthEndpoint.searchParams.set("client_secret", googleOAuthConfig[platform].clientSecret || "");
+  googleOAuthEndpoint.searchParams.set("client_id", googleOAuthConfig[platform].clientId);
   googleOAuthEndpoint.searchParams.set("grant_type", "refresh_token");
 
   if (!refreshToken) {
