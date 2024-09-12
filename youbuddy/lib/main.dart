@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
@@ -16,11 +18,12 @@ import 'query_route_generator.dart';
 
 // conditional imports for mobile/web libraries
 import 'login_stub.dart'
-  if (dart.library.html) 'login_web.dart'
-  if (dart.library.io)   'login_stub.dart';
+    if (dart.library.html) 'login_web.dart'
+    if (dart.library.io) 'login_stub.dart';
 import 'oauth2_handler_stub.dart'
-  if (dart.library.html) 'oauth2_handler.dart'
-  if (dart.library.io)   'oauth2_handler_stub.dart';
+    if (dart.library.html) 'oauth2_handler.dart'
+    if (dart.library.io) 'oauth2_handler_stub.dart';
+
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
@@ -29,7 +32,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-      
+
   usePathUrlStrategy();
   runApp(MyApp());
 }
@@ -118,29 +121,33 @@ class _InitializationWidgetState extends State<InitializationWidget> {
   }
 
   Future<UserCredential> _loginWithGoogle() async {
-    final authEndpoint = Uri.parse('https://accounts.google.com/o/oauth2/v2/auth').replace(
-        queryParameters: {
+    final authEndpoint =
+        Uri.parse('https://accounts.google.com/o/oauth2/v2/auth').replace(
+            queryParameters: {
           'prompt': 'select_account',
           'response_type': 'code',
           'access_type': 'offline'
-        }
-    );
+        });
     final tokenEndpoint = Uri.parse('https://oauth2.googleapis.com/token');
 
     // window.location.origin cant be used on mobile so put in constant
     final redirectUrl = Uri.parse(REDIRECT_URL);
 
     final grant = oauth2.AuthorizationCodeGrant(
-      CLIENT_ID, authEndpoint, tokenEndpoint, secret: CLIENT_SECRET
-    );
+        CLIENT_ID, authEndpoint, tokenEndpoint,
+        secret: CLIENT_SECRET);
 
     // openid scope allows for firebase authentication with same access token
-    var authUrl = grant.getAuthorizationUrl(redirectUrl, scopes: ["https://www.googleapis.com/auth/youtube", "openid", "email", "profile"]);
+    var authUrl = grant.getAuthorizationUrl(redirectUrl, scopes: [
+      "https://www.googleapis.com/auth/youtube",
+      "openid",
+      "email",
+      "profile"
+    ]);
     final result = await FlutterWebAuth2.authenticate(
         url: authUrl.toString(),
         callbackUrlScheme: redirectUrl.scheme,
-        options: FlutterWebAuth2Options(intentFlags: ephemeralIntentFlags)
-    );
+        options: FlutterWebAuth2Options(intentFlags: ephemeralIntentFlags));
     final params = Uri.parse(result).queryParameters;
     final client = await grant.handleAuthorizationResponse(params);
 
@@ -167,10 +174,19 @@ class _InitializationWidgetState extends State<InitializationWidget> {
 
       // update refresh token if available
       if (client.credentials.refreshToken != null) {
+        final platform = kIsWeb
+            ? 'web'
+            : Platform.isAndroid
+                ? 'android'
+                : 'ios';
+
         FirebaseFirestore.instance
             .collection('tokens')
             .doc(credential.user!.uid)
-            .set({'refreshToken': client.credentials.refreshToken});
+            .set({
+          'refreshToken': client.credentials.refreshToken,
+          'platform': platform
+        });
       }
     }
 
@@ -310,9 +326,10 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                                   clientId:
                                       FirebaseAuth.instance.currentUser!.uid),
                               FriendManagementView(
-                                  clientId:
-                                      FirebaseAuth.instance.currentUser!.uid,
-                              clientFriendId: friendId,),
+                                clientId:
+                                    FirebaseAuth.instance.currentUser!.uid,
+                                clientFriendId: friendId,
+                              ),
                             ],
                           ),
                         ),
@@ -364,8 +381,9 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                         RecommendationView(
                             clientId: FirebaseAuth.instance.currentUser!.uid),
                         FriendManagementView(
-                            clientId: FirebaseAuth.instance.currentUser!.uid,
-                          clientFriendId: friendId,),
+                          clientId: FirebaseAuth.instance.currentUser!.uid,
+                          clientFriendId: friendId,
+                        ),
                       ],
                     ),
                   ),
