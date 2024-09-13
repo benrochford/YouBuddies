@@ -1,16 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youbuddy/collect_recs_button.dart';
 import 'dart:math';
 
 import 'package:youbuddy/firebase_utils.dart';
 
-class RecommendationView extends StatefulWidget {
-  final String clientId;
+import 'models.dart';
 
-  RecommendationView({required this.clientId});
+class RecommendationView extends StatefulWidget {
+  final User currentUser;
+
+  RecommendationView({required this.currentUser});
 
   @override
   _RecommendationViewState createState() => _RecommendationViewState();
@@ -25,11 +26,14 @@ class _RecommendationViewState extends State<RecommendationView>
 
   // animation stuff for funny empty list icon
   late AnimationController _controller;
-  late Future<List<Map<String, dynamic>>> fetchRecommendationsFuture;
+  late Future<List<Map<dynamic, dynamic>>> fetchRecommendationsFuture;
+  late Future<List<User>> fetchFriendsFuture;
 
   @override
   void initState() {
     super.initState();
+    fetchFriendsFuture = fetchFriends(widget.currentUser);
+
     _controller = AnimationController(
       duration: const Duration(seconds: 1),
       vsync: this,
@@ -53,115 +57,44 @@ class _RecommendationViewState extends State<RecommendationView>
     super.dispose();
   }
 
-  Future<List<String>> fetchFriends() async {
-    final friendsDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.clientId)
-        .collection('friends')
-        .get();
-
-    return friendsDoc.docs.map((doc) => doc.id).toList();
-  }
-
-  Future<Map<String, List<Map<String, dynamic>>>>
-      fetchRecommendationsFromFriends(List<String> friends) async {
-    Map<String, List<Map<String, dynamic>>> friendRecommendationsMap = {};
-    for (String friend in friends) {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(friend)
-          .collection('youtubeRecommendations')
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .get();
-
-      if (querySnapshot.docs.isNotEmpty) {
-        final recentRecommendationsDoc = querySnapshot.docs.first.data();
-        if (recentRecommendationsDoc.containsKey('recommendations')) {
-          final friendRecommendations =
-              (recentRecommendationsDoc['recommendations'] as List)
-                  .map((r) => r as Map<String, dynamic>)
-                  .toList();
-          friendRecommendationsMap[friend] = friendRecommendations;
-        }
-      }
+  Future<Map<User, List<Recommendations>>> fetchRecommendationsFromFriends(
+      List<User> friends) async {
+    Map<User, List<Recommendations>> friendRecommendationsMap = {};
+    for (User friend in friends) {
+      List<Recommendations> recs = await fetchRecommendations(friend);
+      friendRecommendationsMap[friend] = recs;
     }
 
     return friendRecommendationsMap;
   }
 
-  Future<List<Map<String, dynamic>>> fetchFriendRecommendations(
-      String friendId) async {
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(friendId)
-        .collection('youtubeRecommendations')
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .get();
-
-    if (querySnapshot.docs.isNotEmpty) {
-      final recentRecommendationsDoc = querySnapshot.docs.first.data();
-      if (recentRecommendationsDoc.containsKey('recommendations')) {
-        return (recentRecommendationsDoc['recommendations'] as List)
-            .map((r) => r as Map<String, dynamic>)
-            .toList();
-      }
-    }
-    return [];
-  }
-
-  Future<List<Map<String, dynamic>>> fetchCurrentUserRecommendations() async {
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.clientId)
-        .collection('youtubeRecommendations')
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .get();
-
-    if (querySnapshot.docs.isNotEmpty) {
-      final recentRecommendationsDoc = querySnapshot.docs.first.data();
-      if (recentRecommendationsDoc.containsKey('recommendations')) {
-        return (recentRecommendationsDoc['recommendations'] as List)
-            .map((r) => r as Map<String, dynamic>)
-            .toList();
-      }
-    }
-    return [];
-  }
-
-  Future<Map<String, Map<String, dynamic>>> findCommonRecommendations(
-      List<String> friends) async {
-    Map<String, Map<String, dynamic>> commonRecsMap = {};
+  Future<Map<Video, Map<String, dynamic>>> findCommonRecommendations(
+      Map<User, List<Recommendations>> friendRecs) async {
+    Map<Video, Map<String, dynamic>> commonRecsMap = {};
 
     // Initialize commonRecsMap with current user's recommendations
-    final currentUserRecs = await fetchCurrentUserRecommendations();
-    for (var rec in currentUserRecs) {
-      commonRecsMap[rec['link']] = {
+    final currentUserRecs = await fetchRecommendations(widget.currentUser);
+    for (var video in currentUserRecs.first.videos) {
+      commonRecsMap[video] = {
         'count': 1,
-        'title': rec['title'],
-        'link': rec['link'],
-        'channel': rec['channel'],
         'friendUsernames': ['You!'],
       };
     }
 
-    for (String friend in friends) {
-      final friendRecs = await fetchFriendRecommendations(friend);
-      for (var rec in friendRecs) {
-        if (commonRecsMap.containsKey(rec['link'])) {
-          if (commonRecsMap[rec['link']]?['count'] != null) {
-            commonRecsMap[rec['link']]!['count'] += 1;
-            commonRecsMap[rec['link']]!['friendUsernames'].add(friend);
+    for (MapEntry<User, List<Recommendations>> entry in friendRecs.entries) {
+      final friend = entry.key;
+      final recs = entry.value;
+
+      for (var rec in recs.first.videos) {
+        if (commonRecsMap.containsKey(rec)) {
+          if (commonRecsMap[rec]?['count'] != null) {
+            commonRecsMap[rec]!['count'] += 1;
+            commonRecsMap[rec]!['friendUsernames'].add(friend.name);
           }
         } else {
-          commonRecsMap[rec['link']] = {
+          commonRecsMap[rec] = {
             'count': 1,
-            'title': rec['title'],
-            'link': rec['link'],
-            'channel': rec['channel'],
-            'friendUsernames': [friend],
+            'friendUsernames': [friend.name],
           };
         }
       }
@@ -173,7 +106,7 @@ class _RecommendationViewState extends State<RecommendationView>
   }
 
   Widget buildCommonRecommendationsWidget(
-      Map<String, Map<String, dynamic>> commonRecsMap) {
+      Map<Video, Map<String, dynamic>> commonRecsMap) {
     List<Widget> commonRecsList = [];
 
     // Null check and sorting
@@ -186,17 +119,17 @@ class _RecommendationViewState extends State<RecommendationView>
 
       // Take top 30 or fewer if not available
       for (var i = 0; i < min(30, sortedKeys.length); i++) {
-        String url = sortedKeys[i];
-        Map<String, dynamic>? details = commonRecsMap[url];
+        Video video = sortedKeys[i];
+        Map<String, dynamic>? details = commonRecsMap[video];
+
         if (details != null) {
-          String title = details['title'] ?? 'Unknown title';
           String thumbnailUrl = "https://img.youtube.com/vi/" +
-              details['link'].toString().split('?v=')[1] +
+              video.link.toString().split('?v=')[1] +
               "/0.jpg";
 
           commonRecsList.add(InkWell(
             onTap: () async {
-              final urlObj = Uri.parse(url);
+              final urlObj = Uri.parse(video.link);
               if (await canLaunchUrl(urlObj)) {
                 await launchUrl(urlObj);
               } else {
@@ -216,8 +149,8 @@ class _RecommendationViewState extends State<RecommendationView>
                   ),
                 ),
               ),
-              title: Text(title),
-              subtitle: Text(details['channel'] ?? 'Unknown channel'),
+              title: Text(video.title),
+              subtitle: Text(video.channel),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -286,7 +219,7 @@ class _RecommendationViewState extends State<RecommendationView>
   }
 
   List<Widget> buildRecommendationList(
-      List<Map<String, dynamic>> recommendations) {
+      List<Recommendations> recommendations) {
     if (recommendations.isEmpty) {
       return [
         Center(
@@ -319,12 +252,12 @@ class _RecommendationViewState extends State<RecommendationView>
       ];
     }
 
-    return recommendations.map((recommendation) {
+    return recommendations.first.videos.map((video) {
       String thumbnailUrl = "https://img.youtube.com/vi/" +
-          recommendation['link'].toString().split('?v=')[1] +
+          video.link.toString().split('?v=')[1] +
           "/0.jpg";
 
-      final url = Uri.parse(recommendation['link']);
+      final url = Uri.parse(video.link);
       return InkWell(
         onTap: () async {
           if (await canLaunchUrl(url)) {
@@ -346,8 +279,8 @@ class _RecommendationViewState extends State<RecommendationView>
               ),
             ),
           ),
-          title: Text(recommendation['title']),
-          subtitle: Text(recommendation['channel'] ?? 'Unknown channel'),
+          title: Text(video.title),
+          subtitle: Text(video.channel),
         ),
       );
     }).toList();
@@ -355,42 +288,46 @@ class _RecommendationViewState extends State<RecommendationView>
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<String>>(
-      future: fetchFriends(),
+    return FutureBuilder<List<User>>(
+      future: fetchFriendsFuture,
       builder: (context, friendsSnapshot) {
         if (!friendsSnapshot.hasData) {
           return Center(child: CircularProgressIndicator());
         }
 
         final friendsList = friendsSnapshot.data!;
-        fetchRecommendationsFuture = Future.wait([
-          fetchRecommendationsFromFriends(friendsList),
-          findCommonRecommendations(friendsList)
-        ]);
 
-        return FutureBuilder<List<Map<String, dynamic>>>(
+        fetchRecommendationsFuture =
+            fetchRecommendationsFromFriends(friendsList).then(
+                (friendRecs) async =>
+                    [friendRecs, await findCommonRecommendations(friendRecs)]);
+
+        return FutureBuilder<List<Map<dynamic, dynamic>>>(
             future: fetchRecommendationsFuture,
             builder: (context, recommendationsSnapshot) {
               if (!recommendationsSnapshot.hasData) {
                 return Center(child: CircularProgressIndicator());
               }
 
-              final recommendationsMap = recommendationsSnapshot.data![0]
-                  as Map<String, List<Map<String, dynamic>>>;
+              final friendRecsMap = recommendationsSnapshot.data![0]
+                  as Map<User, List<Recommendations>>;
               final commonRecsMap = recommendationsSnapshot.data![1]
-                  as Map<String, Map<String, dynamic>>;
+                  as Map<Video, Map<String, dynamic>>;
 
               return Scaffold(
                 appBar: AppBar(
                     title: Text('Recommendations from friends'),
                     actions: [
                       CollectRecsButton(
-                        clientId: widget.clientId,
+                        user: widget.currentUser,
                         onSuccess: () => setState(() {
-                          fetchRecommendationsFuture = Future.wait([
-                            fetchRecommendationsFromFriends(friendsList),
-                            findCommonRecommendations(friendsList)
-                          ]);
+                          fetchRecommendationsFuture =
+                              fetchRecommendationsFromFriends(friendsList).then(
+                                  (friendRecs) async => [
+                                        friendRecs,
+                                        await findCommonRecommendations(
+                                            friendRecs)
+                                      ]);
                         }),
                       )
                     ]),
@@ -402,35 +339,17 @@ class _RecommendationViewState extends State<RecommendationView>
                       physics: NeverScrollableScrollPhysics(),
                       itemCount: friendsList.length,
                       itemBuilder: (context, index) {
-                        final friendUID = friendsList[index];
-                        final recommendations = recommendationsMap[friendUID];
+                        final friend = friendsList[index];
+                        final recommendations = friendRecsMap[friend];
+
                         return ExpansionTile(
-                          title: FutureBuilder<Map<String, dynamic>?>(
-                              future: getUserProfile(friendUID),
-                              builder: (context, snapshot) {
-                                var text = '';
-                                if (snapshot.connectionState ==
-                                    ConnectionState.done) {
-                                  final profile = snapshot.data;
-                                  if (snapshot.hasError || profile == null) {
-                                    text = '<Could not find friend name>';
-                                  } else {
-                                    text = profile['name'];
-                                  }
-                                }
-                                return Text(
-                                  text,
-                                  style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold),
-                                );
-                              }),
+                          title: Text(friend.name,
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
                           initiallyExpanded:
-                              expansionStateMap[friendUID] ?? false,
+                              expansionStateMap[friend.ref.id] ?? false,
                           onExpansionChanged: (bool isExpanded) {
-                            setState(() {
-                              expansionStateMap[friendUID] = isExpanded;
-                            });
+                            expansionStateMap[friend.ref.id] = isExpanded;
                           },
                           children:
                               buildRecommendationList(recommendations ?? []),

@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'models.dart';
+
 class CollectRecsButton extends StatefulWidget {
-  final String clientId;
+  final User user;
   final Function? onSuccess;
   final Function? onError;
 
-  CollectRecsButton({required this.clientId, this.onSuccess, this.onError});
+  CollectRecsButton({required this.user, this.onSuccess, this.onError});
 
   @override
   _CollectRecsButtonState createState() => _CollectRecsButtonState();
@@ -24,7 +26,7 @@ class _CollectRecsButtonState extends State<CollectRecsButton> {
         headers: {
           HttpHeaders.contentTypeHeader: "application/json",
         },
-        body: jsonEncode({'userId': widget.clientId})
+        body: jsonEncode({'userId': widget.user.ref.id})
     ).then((resp) => resp.statusCode == HttpStatus.ok).catchError((error) {
       print(error);
       return false;

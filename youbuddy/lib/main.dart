@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide User;
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:oauth2/oauth2.dart' as oauth2;
@@ -15,6 +15,7 @@ import 'trends_view.dart';
 import 'firebase_utils.dart';
 import 'firebase_options.dart';
 import 'query_route_generator.dart';
+import 'models.dart';
 
 // conditional imports for mobile/web libraries
 import 'login_stub.dart'
@@ -96,8 +97,7 @@ class InitializationWidget extends StatefulWidget {
 
 class _InitializationWidgetState extends State<InitializationWidget> {
   Future<void>? _initializationFuture;
-  late String name;
-  late String friendId;
+  late User currentUser;
 
   @override
   void initState() {
@@ -115,9 +115,10 @@ class _InitializationWidgetState extends State<InitializationWidget> {
       await _getClientIdFromUser(context);
     }
 
-    var profile = await getUserProfile(FirebaseAuth.instance.currentUser!.uid);
-    name = profile['name'];
-    friendId = profile['friendId'];
+    currentUser = await getUserProfile(FirebaseAuth.instance.currentUser!.uid) ?? User.fromJson({
+      'name': 'Air Bud',
+      'friendId': 'Not found'
+    });
   }
 
   Future<UserCredential> _loginWithGoogle() async {
@@ -259,7 +260,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                       actions: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Center(child: Text('[$name]')),
+                          child: Center(child: Text('[${currentUser.name}]')),
                         ),
                         TextButton(
                           onPressed: _logout,
@@ -320,15 +321,11 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                           child: TabBarView(
                             children: [
                               TrendsView(
-                                  clientId:
-                                      FirebaseAuth.instance.currentUser!.uid),
+                                  currentUser: currentUser),
                               RecommendationView(
-                                  clientId:
-                                      FirebaseAuth.instance.currentUser!.uid),
+                                  currentUser: currentUser),
                               FriendManagementView(
-                                clientId:
-                                    FirebaseAuth.instance.currentUser!.uid,
-                                clientFriendId: friendId,
+                                currentUser: currentUser,
                               ),
                             ],
                           ),
@@ -363,7 +360,7 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                       actions: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Center(child: Text('[$name]')),
+                          child: Center(child: Text('[${currentUser.name}]')),
                         ),
                         TextButton(
                           onPressed: _logout,
@@ -377,12 +374,11 @@ class _InitializationWidgetState extends State<InitializationWidget> {
                     body: TabBarView(
                       children: [
                         TrendsView(
-                            clientId: FirebaseAuth.instance.currentUser!.uid),
+                            currentUser: currentUser),
                         RecommendationView(
-                            clientId: FirebaseAuth.instance.currentUser!.uid),
+                            currentUser: currentUser,),
                         FriendManagementView(
-                          clientId: FirebaseAuth.instance.currentUser!.uid,
-                          clientFriendId: friendId,
+                          currentUser: currentUser,
                         ),
                       ],
                     ),
