@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:charts_flutter/flutter.dart' as charts;
+import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:csv/csv.dart';
 import 'dart:typed_data';
 import 'package:file_saver/file_saver.dart';
+import 'package:youbuddy/firebase_utils.dart';
+
+import 'models.dart';
 
 class TrendsView extends StatefulWidget {
-  final String clientId;
-  TrendsView({required this.clientId});
+  final User currentUser;
+  TrendsView({required this.currentUser});
 
   @override
   _TrendsViewState createState() => _TrendsViewState();
 }
 
 class _TrendsViewState extends State<TrendsView> {
-  late Future<List<Map<String, dynamic>>> _dataFuture;
+  late Future<List<Recommendations>> _dataFuture;
   final Map<String, int> _channelRecFrequency = {};
   final Map<String, Map<DateTime, int>> _topicTrendData = {};
   final Map<String, int> _cumulativeChannelData = {};
@@ -26,128 +28,95 @@ class _TrendsViewState extends State<TrendsView> {
   @override
   void initState() {
     super.initState();
-    _dataFuture = fetchCurrentUserRecommendations().then((data) {
+    _dataFuture = fetchRecommendations(widget.currentUser).then((data) {
       processData(data); // Process the data once it's fetched
       return data; // pass the data along
     });
   }
 
-  Future<List<Map<String, dynamic>>> fetchCurrentUserRecommendations() async {
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.clientId)
-        .collection('youtubeRecommendations')
-        .orderBy('timestamp', descending: true)
-        .get(); // removed limit(1) to fetch all data
-
-    List<Map<String, dynamic>> recommendationsList = [];
-    if (querySnapshot.docs.isNotEmpty) {
-      for (var doc in querySnapshot.docs) {
-        final recommendationsDoc = doc.data();
-        if (recommendationsDoc.containsKey('recommendations')) {
-          final recommendations =
-              (recommendationsDoc['recommendations'] as List)
-                  .map((r) => r as Map<String, dynamic>)
-                  .toList();
-          final topics =
-              (recommendationsDoc['topics'] as List?)?.cast<String>() ?? [];
-          final timestamp =
-              (recommendationsDoc['timestamp'] as Timestamp?)?.toDate() ??
-                  DateTime.now();
-          var rank = 1;
-          for (var recommendation in recommendations) {
-            recommendationsList.add({
-              ...recommendation,
-              'rank': rank,
-              'topics': topics,
-              'timestamp': timestamp,
-            });
-            rank++;
-          }
-        }
-      }
-    }
-    return recommendationsList;
-  }
-
-  Future<void> processData(List<Map<String, dynamic>> data) async {
+  Future<void> processData(List<Recommendations> data) async {
     for (var rec in data) {
-      final channel = rec['channel'] as String? ?? 'Unknown';
-      final topics = (rec['topics'] as List?)?.cast<String>() ?? [];
-      final timestamp = rec['timestamp'] as DateTime;
+      for (var video in rec.videos) {
+        final channel = video.channel;
+        final topics = rec.topics;
+        final timestamp = rec.timestamp;
 
-      // Process channel recommendation frequency
-      _channelRecFrequency[channel] = (_channelRecFrequency[channel] ?? 0) + 1;
+        // Process channel recommendation frequency
+        _channelRecFrequency[channel] =
+            (_channelRecFrequency[channel] ?? 0) + 1;
 
-      // Process topic trend data
-      for (var topic in topics) {
-        _topicTrendData[topic] = _topicTrendData[topic] ?? {};
-        final date = DateTime(timestamp.year, timestamp.month, timestamp.day);
-        _topicTrendData[topic]?[date] =
-            (_topicTrendData[topic]?[date] ?? 0) + 1;
+        // Process topic trend data
+        for (var topic in topics) {
+          _topicTrendData[topic] = _topicTrendData[topic] ?? {};
+          final date = DateTime(timestamp.year, timestamp.month, timestamp.day);
+          _topicTrendData[topic]?[date] =
+              (_topicTrendData[topic]?[date] ?? 0) + 1;
+        }
+
+        // Process cumulative channel data
+        _cumulativeChannelData[channel] =
+            (_cumulativeChannelData[channel] ?? 0) + 1;
+
+        // Process cumulative topic data
+        for (var topic in topics) {
+          _cumulativeTopicData[topic] = (_cumulativeTopicData[topic] ?? 0) + 1;
+        }
+
+        // Process time of day data
+        final date = DateTime(
+          timestamp.year,
+          timestamp.month,
+          timestamp.day,
+          timestamp.hour,
+        );
+        _timeOfDayData[date] = _timeOfDayData[date] ?? {};
+        _timeOfDayData[date]?[channel] =
+            (_timeOfDayData[date]?[channel] ?? 0) + 1;
       }
-
-      // Process cumulative channel data
-      _cumulativeChannelData[channel] =
-          (_cumulativeChannelData[channel] ?? 0) + 1;
-
-      // Process cumulative topic data
-      for (var topic in topics) {
-        _cumulativeTopicData[topic] = (_cumulativeTopicData[topic] ?? 0) + 1;
-      }
-
-      // Process time of day data
-      final date = DateTime(
-        timestamp.year,
-        timestamp.month,
-        timestamp.day,
-        timestamp.hour,
-      );
-      _timeOfDayData[date] = _timeOfDayData[date] ?? {};
-      _timeOfDayData[date]?[channel] =
-          (_timeOfDayData[date]?[channel] ?? 0) + 1;
     }
   }
 
   // Methods for CSV download
 
   String generateRecommendationsCSV(
-      List<Map<String, dynamic>> recommendations) {
+      List<Recommendations> recommendations) {
     List<List<dynamic>> rows = [
       ['Timestamp', 'Title', 'Channel', 'Link'], // CSV header
     ];
 
     for (var rec in recommendations) {
-      List<dynamic> row = [
-        rec['timestamp'].toIso8601String(),
-        rec['title'],
-        rec['channel'],
-        rec['link'],
-      ];
-      rows.add(row);
+      for (var video in rec.videos) {
+        List<dynamic> row = [
+          rec.timestamp.toIso8601String(),
+          video.title,
+          video.channel,
+          video.link,
+        ];
+        rows.add(row);
+      }
     }
 
     return const ListToCsvConverter().convert(rows);
   }
 
-  String generateTagsCSV(List<Map<String, dynamic>> recommendations) {
+  String generateTagsCSV(List<Recommendations> recommendations) {
     List<List<dynamic>> rows = [
       ['Timestamp', 'Tags'], // CSV header
     ];
 
     List<DateTime> dates = [];
     for (var rec in recommendations) {
-      if (!dates.contains(rec['timestamp'])) {
-        dates.add(rec['timestamp']); // avoid duplicates
+      if (!dates.contains(rec.timestamp)) {
+        dates.add(rec.timestamp); // avoid duplicates
 
         // Filter out ignored topics from the topics list
-        List<String> topics = List<String>.from(rec['topics'] ?? []);
+        List<String> topics = List<String>.from(rec.topics);
         List<String> filteredTopics =
             topics.where((topic) => !ignoreTopics.contains(topic)).toList();
         String filteredTopicsString = filteredTopics.join(', ');
 
         List<dynamic> row = [
-          rec['timestamp'].toIso8601String(),
+          rec.timestamp.toIso8601String(),
           filteredTopicsString,
         ];
         rows.add(row);
@@ -231,13 +200,13 @@ class _TrendsViewState extends State<TrendsView> {
   }
 
   List<Widget> buildRecommendationList(
-      List<Map<String, dynamic>> recommendations) {
-    return recommendations.map((recommendation) {
+      List<Recommendations> recommendations) {
+    return recommendations.first.videos.map((video) {
       String thumbnailUrl = "https://img.youtube.com/vi/" +
-          recommendation['link'].toString().split('?v=')[1] +
+          video.link.toString().split('?v=')[1] +
           "/0.jpg";
 
-      final url = Uri.parse(recommendation['link']);
+      final url = Uri.parse(video.link);
       return InkWell(
         onTap: () async {
           if (await canLaunchUrl(url)) {
@@ -259,8 +228,8 @@ class _TrendsViewState extends State<TrendsView> {
               ),
             ),
           ),
-          title: Text(recommendation['title']),
-          subtitle: Text(recommendation['channel'] ?? 'Unknown channel'),
+          title: Text(video.title),
+          subtitle: Text(video.channel),
         ),
       );
     }).toList();
@@ -276,7 +245,7 @@ class _TrendsViewState extends State<TrendsView> {
       appBar: AppBar(
         title: Text('Recs History'),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List<Recommendations>>(
         future: _dataFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -290,7 +259,7 @@ class _TrendsViewState extends State<TrendsView> {
 
             // Create a list of timestamps
             final timestamps = data
-                .map((rec) => rec['timestamp'] as DateTime)
+                .map((rec) => rec.timestamp)
                 .toSet() // Remove duplicates
                 .toList()
               ..sort((a, b) => b.compareTo(a)); // Sort in descending order
@@ -313,7 +282,7 @@ class _TrendsViewState extends State<TrendsView> {
                         ElevatedButton(
                           onPressed: () async {
                             final recommendations =
-                                await fetchCurrentUserRecommendations();
+                                await fetchRecommendations(widget.currentUser);
                             final recommendationsCSV =
                                 generateRecommendationsCSV(recommendations);
                             final tagsCSV = generateTagsCSV(recommendations);
@@ -353,8 +322,7 @@ class _TrendsViewState extends State<TrendsView> {
                       title: Icon(Icons.video_library_outlined),
                       children: buildRecommendationList(
                         data.where((rec) {
-                          final recTimestamp = rec['timestamp'] as DateTime;
-                          return recTimestamp
+                          return rec.timestamp
                               .isAtSameMomentAs(selectedTimestamp!);
                         }).toList(),
                       ),
