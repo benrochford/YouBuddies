@@ -45,6 +45,8 @@ class User {
     return other is User && this.ref.id == other.ref.id;
   }
 
+  int get hashCode => ref.id.hashCode;
+
   @override
   String toString() {
     return toJson().toString();
@@ -86,6 +88,8 @@ class Recommendations {
     return other is Recommendations &&
         setEquals(this.videos.toSet(), other.videos.toSet());
   }
+
+  int get hashCode => videos.toSet().hashCode;
 }
 
 class Video {
@@ -106,6 +110,8 @@ class Video {
   bool operator ==(Object other) {
     return other is Video && this.link == other.link;
   }
+
+  int get hashCode => link.hashCode;
 
   @override
   String toString() {

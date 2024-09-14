@@ -61,7 +61,7 @@ class _RecommendationViewState extends State<RecommendationView>
       List<User> friends) async {
     Map<User, List<Recommendations>> friendRecommendationsMap = {};
     for (User friend in friends) {
-      List<Recommendations> recs = await fetchRecommendations(friend);
+      List<Recommendations> recs = await fetchRecommendations(friend, limit: 7);
       friendRecommendationsMap[friend] = recs;
     }
 
@@ -73,29 +73,34 @@ class _RecommendationViewState extends State<RecommendationView>
     Map<Video, Map<String, dynamic>> commonRecsMap = {};
 
     // Initialize commonRecsMap with current user's recommendations
-    final currentUserRecs = await fetchRecommendations(widget.currentUser);
-    for (var video in currentUserRecs.first.videos) {
-      commonRecsMap[video] = {
-        'count': 1,
-        'friendUsernames': ['You!'],
-      };
+    final currentUserRecs =
+        await fetchRecommendations(widget.currentUser, limit: 7);
+    for (final rec in currentUserRecs) {
+      for (final video in rec.videos) {
+        commonRecsMap[video] = {
+          'count': 1,
+          'friendUsernames': ['You!'],
+        };
+      }
     }
 
     for (MapEntry<User, List<Recommendations>> entry in friendRecs.entries) {
       final friend = entry.key;
       final recs = entry.value;
-
-      for (var rec in recs.first.videos) {
-        if (commonRecsMap.containsKey(rec)) {
-          if (commonRecsMap[rec]?['count'] != null) {
-            commonRecsMap[rec]!['count'] += 1;
-            commonRecsMap[rec]!['friendUsernames'].add(friend.name);
+      for (final rec in recs) {
+        for (var video in rec.videos) {
+          if (commonRecsMap.containsKey(video)) {
+            if (commonRecsMap[video]?['count'] != null &&
+                !commonRecsMap[video]?['friendUsernames'].contains(friend.name)) {
+              commonRecsMap[video]!['count'] += 1;
+              commonRecsMap[video]!['friendUsernames'].add(friend.name);
+            }
+          } else {
+            commonRecsMap[video] = {
+              'count': 1,
+              'friendUsernames': [friend.name],
+            };
           }
-        } else {
-          commonRecsMap[rec] = {
-            'count': 1,
-            'friendUsernames': [friend.name],
-          };
         }
       }
     }
@@ -218,8 +223,7 @@ class _RecommendationViewState extends State<RecommendationView>
     );
   }
 
-  List<Widget> buildRecommendationList(
-      List<Recommendations> recommendations) {
+  List<Widget> buildRecommendationList(List<Recommendations> recommendations) {
     if (recommendations.isEmpty) {
       return [
         Center(
