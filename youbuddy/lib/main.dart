@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide User;
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:localstorage/localstorage.dart';
 import 'package:oauth2/oauth2.dart' as oauth2;
 
 import 'friend_management_view.dart';
@@ -29,7 +30,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await initLocalStorage();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -154,7 +155,6 @@ class _InitializationWidgetState extends State<InitializationWidget> {
 
     final accessToken = client.credentials.accessToken;
     final idToken = client.credentials.idToken;
-    print(client.credentials.refreshToken);
 
     var credential = await FirebaseAuth.instance.signInWithCredential(
         GoogleAuthProvider.credential(
