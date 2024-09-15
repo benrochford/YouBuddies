@@ -4,20 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:localstorage/localstorage.dart';
 
 class AuthHandlerWidget extends StatelessWidget {
+  // check https://github.com/ThexXTURBOXx/flutter_web_auth_2 for example handler
   AuthHandlerWidget({Key? key}) : super(key: key) {
-    final message = {
-      'flutter-web-auth-2': window.location.href
-    };
+    final message = {'flutter-web-auth-2': window.location.href};
 
-    if (window.opener != null) {
-      window.opener!.postMessage(message, window.location.origin);
-      window.close();
-    } else if (window.parent != null && window.parent != window) {
-      window.parent!.postMessage(message, window.location.origin);
-    } else {
+    try {
+      window.opener?.postMessage(message, window.location.origin);
+    } catch (e) {
       localStorage.setItem('flutter-web-auth-2', window.location.href);
-      window.close();
     }
+    window.close();
   }
 
   @override

@@ -3,19 +3,20 @@
     "short_name": "YouBuddies",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#ffffff",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
     "description": "An app for collaborative recommendations among friends.",
+    "prefer_related_applications": false,
     "icons": [
-      {
-        "src": "icons/Icon-128.png",
-        "sizes": "128x128",
-        "type": "image/png"
-      },
-      {
-        "src": "icons/Icon-512.png",
-        "sizes": "512x512",
-        "type": "image/png"
-      }
+        {
+            "src": "icons/Icon-128.png",
+            "sizes": "128x128",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
     ]
 }
-  
