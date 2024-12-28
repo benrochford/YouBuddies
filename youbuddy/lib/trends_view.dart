@@ -3,9 +3,11 @@ import 'package:community_charts_flutter/community_charts_flutter.dart' as chart
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:csv/csv.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'dart:typed_data';
 import 'package:file_saver/file_saver.dart';
 import 'package:youbuddy/firebase_utils.dart';
+import 'package:flutter/gestures.dart';
 
 import 'models.dart';
 
@@ -25,6 +27,31 @@ class _TrendsViewState extends State<TrendsView> {
   final Map<String, int> _cumulativeTopicData = {};
   final Map<DateTime, Map<String, int>> _timeOfDayData = {};
 
+  String selectedTimeframe = 'Weekly';
+  String? selectedTopic;
+  List<String> allTopics = [];
+  Map<String, List<FlSpot>> topicTimeSeriesData = {};
+  List<String> selectedTopics = [];
+  TextEditingController searchController = TextEditingController();
+  List<String> filteredTopics = [];
+  final List<Color> topicColors = [
+    Colors.blue,
+    Colors.red,
+    Colors.green,
+    Colors.orange,
+    Colors.purple,
+    Colors.teal,
+    Colors.pink,
+    Colors.amber,
+    Colors.cyan,
+    Colors.indigo,
+  ];
+
+  final ScrollController _topicsScrollController = ScrollController();
+  final ScrollController _searchScrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _isSearching = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +59,312 @@ class _TrendsViewState extends State<TrendsView> {
       processData(data); // Process the data once it's fetched
       return data; // pass the data along
     });
+    _loadTopicsData();
+  }
+
+  @override
+  void dispose() {
+    _searchScrollController.dispose();
+    _topicsScrollController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadTopicsData() async {
+    // Fetch all recommendations to analyze topics
+    final allRecs = await fetchRecommendations(widget.currentUser);
+    Set<String> topics = {};
+    Map<String, Map<DateTime, int>> topicCounts = {};
+    Set<DateTime> daysWithData = {}; // Track days where we have any recommendations
+
+    // Process recommendations to get topics and their counts over time
+    for (var rec in allRecs) {
+      // Round to start of day
+      final date = DateTime(rec.timestamp.year, rec.timestamp.month, rec.timestamp.day);
+      daysWithData.add(date); // Mark this day as having data
+      
+      for (var topic in rec.topics) {
+        topics.add(topic);
+        topicCounts.putIfAbsent(topic, () => {});
+        topicCounts[topic]![date] = (topicCounts[topic]![date] ?? 0) + 1;
+      }
+    }
+
+    // Convert to chart data, only including days where we have recommendations
+    for (var topic in topics) {
+      var filteredCounts = Map.fromEntries(
+        topicCounts[topic]!.entries.where((e) => daysWithData.contains(e.key))
+      );
+      var spots = _generateTimeSeriesSpots(filteredCounts, selectedTimeframe);
+      topicTimeSeriesData[topic] = spots;
+    }
+
+    setState(() {
+      allTopics = topics.toList()..sort();
+      if (allTopics.isNotEmpty) {
+        selectedTopic = allTopics.first;
+      }
+    });
+  }
+
+  List<FlSpot> _generateTimeSeriesSpots(Map<DateTime, int> dateCounts, String timeframe) {
+    var groupedCounts = <DateTime, int>{};
+    
+    // Group by selected timeframe
+    dateCounts.forEach((date, count) {
+      DateTime groupKey;
+      if (timeframe == 'Weekly') {
+        // Round to start of week
+        groupKey = date.subtract(Duration(days: date.weekday - 1));
+      } else {
+        // Monthly
+        groupKey = DateTime(date.year, date.month, 1);
+      }
+      groupedCounts[groupKey] = (groupedCounts[groupKey] ?? 0) + count;
+    });
+
+    // Convert to spots, only including days with data
+    return groupedCounts.entries
+        .where((e) => e.value > 0) // Only include entries with data
+        .map((e) => FlSpot(e.key.millisecondsSinceEpoch.toDouble(), e.value.toDouble()))
+        .toList()
+      ..sort((a, b) => a.x.compareTo(b.x));
+  }
+
+  Widget _buildTopicTimeSeriesChart() {
+    if (topicTimeSeriesData.isEmpty) {
+      return Container();
+    }
+
+    return Column(
+      children: [
+        // Topic Selection and Search
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Focus(
+                onFocusChange: (hasFocus) {
+                  setState(() {
+                    _isSearching = hasFocus;
+                  });
+                },
+                child: TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search topics...',
+                    prefixIcon: Icon(Icons.search),
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.clear_all),
+                      tooltip: 'Reset selection',
+                      onPressed: () {
+                        setState(() {
+                          selectedTopics.clear();
+                        });
+                      },
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      filteredTopics = allTopics
+                          .where((topic) => topic.toLowerCase().contains(value.toLowerCase()))
+                          .toList();
+                    });
+                  },
+                  focusNode: _searchFocusNode,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                ),
+              ),
+              SizedBox(height: 8),
+              // Single Topics List with scrolling
+              Container(
+                constraints: BoxConstraints(maxHeight: 200),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Scrollbar(
+                  controller: _topicsScrollController,
+                  thumbVisibility: true,
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      scrollbars: true,
+                      dragDevices: {
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.mouse,
+                      },
+                    ),
+                    child: ListView.builder(
+                      controller: _topicsScrollController,
+                      itemCount: (searchController.text.isEmpty ? allTopics : filteredTopics).length,
+                      itemBuilder: (context, index) {
+                        final topic = (searchController.text.isEmpty ? allTopics : filteredTopics)[index];
+                        return CheckboxListTile(
+                          dense: true,
+                          title: Text(topic),
+                          value: selectedTopics.contains(topic),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value == true) {
+                                if (selectedTopics.length < topicColors.length) {
+                                  selectedTopics.add(topic);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Maximum ${topicColors.length} topics allowed')),
+                                  );
+                                }
+                              } else {
+                                selectedTopics.remove(topic);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 8),
+              // Timeframe Selection
+              DropdownButton<String>(
+                value: selectedTimeframe,
+                items: ['Weekly', 'Monthly']
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedTimeframe = value!;
+                    _loadTopicsData();
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        // Bar Chart
+        Container(
+          height: 300,
+          padding: EdgeInsets.all(16),
+          child: BarChart(
+            BarChartData(
+              gridData: FlGridData(show: true),
+              titlesData: FlTitlesData(
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, _) => Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: RotatedBox(
+                        quarterTurns: 1,
+                        child: Text(
+                          DateFormat('MMM yy').format(
+                            DateTime.fromMillisecondsSinceEpoch(value.toInt())
+                          ),
+                          style: TextStyle(fontSize: 10),
+                        ),
+                      ),
+                    ),
+                    reservedSize: 40,
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    getTitlesWidget: (value, _) => Text(value.toInt().toString()),
+                  ),
+                ),
+                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              barGroups: _generateBarGroups(),
+              minY: 0,
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  tooltipBgColor: Colors.blueGrey,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final timestamp = DateTime.fromMillisecondsSinceEpoch(group.x.toInt());
+                    // Get first day of week (assuming week starts on Monday)
+                    final firstDayOfWeek = timestamp.subtract(Duration(days: timestamp.weekday - 1));
+                    final topic = selectedTopics[rodIndex];
+                    return BarTooltipItem(
+                      '${DateFormat('MMM dd, yyyy').format(firstDayOfWeek)}\n$topic: ${rod.toY.toInt()}',
+                      const TextStyle(color: Colors.white),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Legend
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: selectedTopics.asMap().entries.map((entry) {
+              final colorIndex = entry.key % topicColors.length;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    color: topicColors[colorIndex],
+                  ),
+                  SizedBox(width: 4),
+                  Text(entry.value),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<BarChartGroupData> _generateBarGroups() {
+    if (selectedTopics.isEmpty) return [];
+
+    // Find all unique timestamps across selected topics
+    Set<int> timestamps = {};
+    for (var topic in selectedTopics) {
+      if (topicTimeSeriesData[topic] != null) {
+        timestamps.addAll(
+          topicTimeSeriesData[topic]!
+              .map((spot) => spot.x.toInt())
+        );
+      }
+    }
+
+    var sortedTimestamps = timestamps.toList()..sort();
+    
+    return sortedTimestamps.map((timestamp) {
+      List<BarChartRodData> rods = selectedTopics.asMap().entries.map((entry) {
+        final topic = entry.value;
+        final colorIndex = entry.key % topicColors.length;
+        final spots = topicTimeSeriesData[topic] ?? [];
+        final spot = spots.firstWhere(
+          (s) => s.x.toInt() == timestamp,
+          orElse: () => FlSpot(timestamp.toDouble(), 0),
+        );
+
+        return BarChartRodData(
+          toY: spot.y,
+          color: topicColors[colorIndex],
+          width: 16 / selectedTopics.length, // Adjust width based on number of topics
+        );
+      }).toList();
+
+      return BarChartGroupData(
+        x: timestamp,
+        barRods: rods,
+      );
+    }).toList();
   }
 
   Future<void> processData(List<Recommendations> data) async {
@@ -481,6 +814,8 @@ class _TrendsViewState extends State<TrendsView> {
                       ),
                     ),
                   ),
+
+                  _buildTopicTimeSeriesChart(), 
                 ],
               ),
             );
