@@ -2,13 +2,13 @@
   "compilerOptions": {
     "module": "commonjs",
     "noImplicitReturns": true,
-    "noUnusedLocals": true,
+    "noUnusedLocals": false,
     "outDir": "lib",
     "sourceMap": true,
-    "strict": true,
-    "target": "esnext",
+    "strict": false,
+    "target": "es2017",
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
   },
   "compileOnSave": true,
   "include": [

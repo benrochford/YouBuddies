@@ -1,3 +1,4 @@
-import {collectAllRecs} from "./collector.ts";
+import {collectAllRecs, collectRecsUser} from "./collector";
 
-collectAllRecs();
+//collectAllRecs();
+collectRecsUser('vtICzk0voUYmSu1o0mfbsiLlMNy2');
