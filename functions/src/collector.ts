@@ -185,36 +185,38 @@ async function* parseTVResponseVideos(body: any, accessToken: string) {
   let recommendedShelf;
   
   for (const content of tvContentRenderer.content.sectionListRenderer.contents) {
-    const category = content.shelfRenderer.headerRenderer.shelfHeaderRenderer.avatarLockup.avatarLockupRenderer.title.runs?.[0].text;
+    const category = content.shelfRenderer?.headerRenderer.shelfHeaderRenderer.avatarLockup.avatarLockupRenderer.title.runs?.[0].text;
 
     if (category == "Recommended") {
       recommendedShelf = content.shelfRenderer;
     }
   }
 
-  let horizontalList = recommendedShelf.content.horizontalListRenderer;
+  let horizontalList = recommendedShelf?.content.horizontalListRenderer;
   while (true) {
-    for (const item of horizontalList.items) {
-      // videos have tileRenderer while ads have adSlotRenderer
-      const tileRenderer = item?.tileRenderer;
+    if (horizontalList) {
+      for (const item of horizontalList.items) {
+        // videos have tileRenderer while ads have adSlotRenderer
+        const tileRenderer = item?.tileRenderer;
 
-      if (tileRenderer && tileRenderer.contentType == 'TILE_CONTENT_TYPE_VIDEO') {
-        const title = tileRenderer.metadata.tileMetadataRenderer.title.simpleText;
-        const videoId = tileRenderer.onSelectCommand.watchEndpoint?.videoId;
-        if (videoId) { // movies do not have videoId
-          const channelInfo = tileRenderer.metadata.tileMetadataRenderer.lines[0].lineRenderer.items[0].lineItemRenderer.text;
-          const channel = channelInfo.runs?.[0].text || channelInfo.simpleText;
-          const newRec = {
-            "title": title || "<no title found>",
-            "link": youtubeWatchUrl + videoId,
-            "channel": channel || "<no channel found>",
-          };
+        if (tileRenderer && tileRenderer.contentType == 'TILE_CONTENT_TYPE_VIDEO') {
+          const title = tileRenderer.metadata.tileMetadataRenderer.title.simpleText;
+          const videoId = tileRenderer.onSelectCommand.watchEndpoint?.videoId;
+          if (videoId) { // movies do not have videoId
+            const channelInfo = tileRenderer.metadata.tileMetadataRenderer.lines[0].lineRenderer.items[0].lineItemRenderer.text;
+            const channel = channelInfo.runs?.[0].text || channelInfo.simpleText;
+            const newRec = {
+              "title": title || "<no title found>",
+              "link": youtubeWatchUrl + videoId,
+              "channel": channel || "<no channel found>",
+            };
 
-          yield newRec;
+            yield newRec;
+          }
         }
       }
     }
-    
+
     // continue request to fetch more videos
     const continuationRequest = {
       ...browseRequest,
